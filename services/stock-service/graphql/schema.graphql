@@ -1,0 +1,15 @@
+type Inventory {
+  id: ID!
+  productCode: String! @rename(attribute: "product_code")
+  productName: String! @rename(attribute: "product_name")
+  stock: Int!
+}
+
+type Query {
+  checkStock(productCode: String! @eq(key: "product_code")): Inventory @find
+}
+
+type Mutation {
+  increaseStock(productCode: String!, quantity: Int!): Inventory
+  decreaseStock(productCode: String!, quantity: Int!): Inventory
+}

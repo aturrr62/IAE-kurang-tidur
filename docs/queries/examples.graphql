@@ -1,0 +1,83 @@
+# Example GraphQL Queries & Mutations
+
+## 🛒 TOKO DOMAIN
+
+### Product Service (Port 8001)
+#### Get All Products
+```graphql
+query {
+  products {
+    id
+    code
+    name
+    price
+    stock
+  }
+}
+```
+
+### Order Service (Port 8002)
+#### Create Order
+```graphql
+mutation {
+  createOrder(productId: 1, quantity: 2) {
+    id
+    productId
+    quantity
+    status
+  }
+}
+```
+
+---
+
+## 🏭 GUDANG DOMAIN
+
+### Stock Service (Port 8003)
+#### Check Warehouse Stock
+```graphql
+query {
+  checkStock(productCode: "ELEC001") {
+    id
+    productCode
+    quantity
+  }
+}
+```
+
+#### Increase Stock
+```graphql
+mutation {
+  increaseStock(productCode: "ELEC001", quantity: 100) {
+    productCode
+    quantity
+  }
+}
+```
+
+### Shipping Service (Port 8004)
+#### Request Restock (Create Shipment)
+```graphql
+mutation {
+  requestRestock(input: {
+    storeId: "STORE_01",
+    productCode: "ELEC001",
+    quantity: 50
+  }) {
+    id
+    orderCode
+    status
+    estimatedDelivery
+  }
+}
+```
+
+#### Track Shipment
+```graphql
+query {
+  trackShipment(orderCode: "REQ-001") {
+    status
+    estimatedDelivery
+  }
+}
+```

@@ -1,0 +1,25 @@
+type Product {
+  id: ID!
+  code: String!
+  name: String!
+  category: String
+  price: Float
+  stock: Int!
+  minStockThreshold: Int @rename(attribute: "min_stock_threshold")
+}
+
+type Query {
+  products(search: String @where(operator: "like"), lowStock: Boolean): [Product!]! @all
+  product(id: ID! @eq): Product @find
+  checkStock(productCode: String!): StockStatus
+}
+
+type StockStatus {
+  productCode: String!
+  available: Boolean!
+  warehouseStock: Int
+}
+
+type Mutation {
+  decreaseStock(productId: ID!, quantity: Int!): Product
+}

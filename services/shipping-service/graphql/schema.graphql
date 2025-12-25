@@ -1,0 +1,58 @@
+type User {
+  id: ID!
+  name: String!
+  email: String!
+}
+
+type Inventory {
+  id: ID!
+  productCode: String!
+  productName: String!
+  stock: Int!
+}
+
+type WarehouseOrder {
+  id: ID!
+  tokoOrderCode: String! @rename(attribute: "toko_order_code")
+  productCode: String! @rename(attribute: "product_code")
+  quantity: Int!
+  status: String!
+  processedBy: User! @belongsTo
+  shipment: Shipment @hasOne
+}
+
+type Shipment {
+  id: ID!
+  shippingCode: String! @rename(attribute: "shipping_code")
+  warehouseOrderId: ID! @rename(attribute: "warehouse_order_id")
+  storeAddress: String! @rename(attribute: "store_address")
+  status: String!
+  shippedAt: String @rename(attribute: "shipped_at")
+  warehouseOrder: WarehouseOrder! @belongsTo
+}
+
+type Query {
+  trackShipment(shippingCode: String! @eq(key: "shipping_code")): Shipment @find
+  warehouseOrders: [WarehouseOrder!]! @all
+  warehouseOrder(id: ID! @eq): WarehouseOrder @find
+}
+
+input WarehouseOrderInput {
+  tokoOrderCode: String!
+  productCode: String!
+  quantity: Int!
+  userId: ID!
+}
+
+input ShipmentInput {
+  warehouseOrderId: ID!
+  storeAddress: String!
+  shippingCode: String!
+}
+
+type Mutation {
+  createWarehouseOrder(input: WarehouseOrderInput! @spread): WarehouseOrder @create
+  approveWarehouseOrder(id: ID!, status: String = "DITERIMA"): WarehouseOrder @update
+  rejectWarehouseOrder(id: ID!, status: String = "DITOLAK"): WarehouseOrder @update
+  createShipment(input: ShipmentInput! @spread): Shipment @create
+}

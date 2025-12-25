@@ -1,0 +1,37 @@
+input RestockItemInput {
+  productCode: String!
+  quantity: Int!
+}
+
+input RestockRequestInput {
+  storeId: String!
+  items: [RestockItemInput!]!
+}
+
+type RestockResponse {
+  success: Boolean!
+  orderId: ID
+  estimatedDelivery: String
+  message: String
+}
+
+type Mutation {
+  requestRestock(input: RestockRequestInput!): RestockResponse
+  createOrder(productId: ID!, quantity: Int!): OrderResult
+}
+
+type Query {
+  trackOrder(orderCode: String! @eq): OrderTrackingStatus
+}
+
+type OrderTrackingStatus {
+  orderCode: String!
+  status: String!
+  events: [String!]
+}
+
+type OrderResult {
+  success: Boolean!
+  orderId: ID
+  message: String
+}

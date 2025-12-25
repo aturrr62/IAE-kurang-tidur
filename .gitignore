@@ -1,0 +1,14 @@
+# Laravel & PHP
+**/vendor/
+**/.env
+**/.phpunit.result.cache
+**/storage/*.key
+
+# Docker & OS
+**/.DS_Store
+.idea/
+.vscode/
+
+# Database Data (Docker Volumes)
+# (Optional) Jika ingin meng-ignore data DB lokal
+# mysql-data/
