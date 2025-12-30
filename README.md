@@ -66,11 +66,7 @@ mutation {
 - ✅ `trackOrder` endpoint untuk Toko
 - ✅ Internal endpoints (approve order, create shipment, dll)
 
-**🔨 Yang PERLU DIKERJAKAN (Opsional - Enhancement):**
-- [ ] Frontend dashboard untuk staff gudang
-- [ ] Testing semua endpoint (ikuti `docs/TESTING_SCENARIOS.md`)
-- [ ] Monitoring & logging
-- [ ] Rate limiting untuk API eksternal
+
 
 ---
 
