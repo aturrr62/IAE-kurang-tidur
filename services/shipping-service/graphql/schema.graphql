@@ -1,9 +1,15 @@
+# ==============================
+# USER & AUTH (from Stock Service)
+# ==============================
 type User {
   id: ID!
   name: String!
   email: String!
 }
 
+# ==============================
+# INVENTORY (from Stock Service)
+# ==============================
 type Inventory {
   id: ID!
   productCode: String!
@@ -11,16 +17,24 @@ type Inventory {
   stock: Int!
 }
 
+# ==============================
+# WAREHOUSE ORDERS
+# ==============================
 type WarehouseOrder {
   id: ID!
   tokoOrderCode: String! @rename(attribute: "toko_order_code")
   productCode: String! @rename(attribute: "product_code")
   quantity: Int!
   status: String!
-  processedBy: User! @belongsTo
+  userId: ID @rename(attribute: "user_id")
   shipment: Shipment @hasOne
+  createdAt: DateTime @rename(attribute: "created_at")
+  updatedAt: DateTime @rename(attribute: "updated_at")
 }
 
+# ==============================
+# SHIPMENTS
+# ==============================
 type Shipment {
   id: ID!
   shippingCode: String! @rename(attribute: "shipping_code")
@@ -29,14 +43,43 @@ type Shipment {
   status: String!
   shippedAt: String @rename(attribute: "shipped_at")
   warehouseOrder: WarehouseOrder! @belongsTo
+  createdAt: DateTime @rename(attribute: "created_at")
+  updatedAt: DateTime @rename(attribute: "updated_at")
 }
 
-type Query {
-  trackShipment(shippingCode: String! @eq(key: "shipping_code")): Shipment @find
-  warehouseOrders: [WarehouseOrder!]! @all
-  warehouseOrder(id: ID! @eq): WarehouseOrder @find
+# ==============================
+# EXTERNAL API TYPES (UNTUK TOKO - INTEGRASI LINTAS KELOMPOK)
+# ==============================
+input RestockRequestInput {
+  storeId: String!
+  productCode: String!
+  quantity: Int!
+  storeAddress: String!
 }
 
+type RestockResponse {
+  success: Boolean!
+  orderCode: String
+  estimatedDelivery: String
+  message: String
+}
+
+type OrderTrackingStatus {
+  orderCode: String!
+  status: String!
+  estimatedDelivery: String
+  events: [TrackingEvent!]
+}
+
+type TrackingEvent {
+  timestamp: String!
+  description: String!
+  status: String!
+}
+
+# ==============================
+# INTERNAL API INPUTS
+# ==============================
 input WarehouseOrderInput {
   tokoOrderCode: String!
   productCode: String!
@@ -50,9 +93,46 @@ input ShipmentInput {
   shippingCode: String!
 }
 
+# ==============================
+# QUERIES
+# ==============================
+type Query {
+  # ========== EXTERNAL (API Key) - UNTUK INTEGRASI TOKO ==========
+  # Track order for Toko - requires API Key + HMAC
+  trackOrder(orderCode: String!): OrderTrackingStatus @field(resolver: "App\\GraphQL\\Queries\\TrackOrder")
+  
+  # ========== INTERNAL (JWT) - UNTUK STAFF GUDANG ==========
+  # Track shipment by shipping code
+  trackShipment(shippingCode: String! @eq(key: "shipping_code")): Shipment @find
+  
+  # Get all warehouse orders
+  warehouseOrders: [WarehouseOrder!]! @all
+  
+  # Get specific warehouse order
+  warehouseOrder(id: ID! @eq): WarehouseOrder @find
+}
+
+# ==============================
+# MUTATIONS
+# ==============================
 type Mutation {
+  # ========== EXTERNAL (API Key) - UNTUK INTEGRASI TOKO (WAJIB) ==========
+  # Request restock from Toko - requires API Key + HMAC
+  requestRestock(input: RestockRequestInput!): RestockResponse @field(resolver: "App\\GraphQL\\Mutations\\RequestRestock")
+  
+  # ========== INTERNAL (JWT) - UNTUK STAFF GUDANG ==========
+  # Create warehouse order (internal use)
   createWarehouseOrder(input: WarehouseOrderInput! @spread): WarehouseOrder @create
+  
+  # Approve warehouse order
   approveWarehouseOrder(id: ID!, status: String = "DITERIMA"): WarehouseOrder @update
+  
+  # Reject warehouse order
   rejectWarehouseOrder(id: ID!, status: String = "DITOLAK"): WarehouseOrder @update
+  
+  # Create shipment
   createShipment(input: ShipmentInput! @spread): Shipment @create
+  
+  # Update shipment status
+  updateShipmentStatus(id: ID!, status: String!): Shipment @update
 }

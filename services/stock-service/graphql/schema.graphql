@@ -1,15 +1,62 @@
+# ==============================
+# USER & AUTHENTICATION
+# ==============================
+type User {
+  id: ID!
+  username: String!
+  name: String!
+  email: String!
+  role: String!
+  createdAt: DateTime @rename(attribute: "created_at")
+  updatedAt: DateTime @rename(attribute: "updated_at")
+}
+
+type AuthResponse {
+  token: String!
+  user: User!
+}
+
+input RegisterInput {
+  username: String!
+  name: String
+  email: String!
+  password: String!
+  role: String
+}
+
+# ==============================
+# INVENTORY & STOCK
+# ==============================
 type Inventory {
   id: ID!
   productCode: String! @rename(attribute: "product_code")
   productName: String! @rename(attribute: "product_name")
   stock: Int!
+  createdAt: DateTime @rename(attribute: "created_at")
+  updatedAt: DateTime @rename(attribute: "updated_at")
 }
 
+# ==============================
+# QUERIES
+# ==============================
 type Query {
+  # Stock Queries
   checkStock(productCode: String! @eq(key: "product_code")): Inventory @find
+  inventories: [Inventory!]! @all
+  
+  # Auth Query (Get current user from JWT)
+  me: User @field(resolver: "App\\GraphQL\\Mutations\\AuthMutation@me")
 }
 
+# ==============================
+# MUTATIONS
+# ==============================
 type Mutation {
+  # Authentication (Stock Service adalah Auth Provider)
+  login(email: String!, password: String!): AuthResponse @field(resolver: "App\\GraphQL\\Mutations\\AuthMutation@login")
+  register(input: RegisterInput!): User @field(resolver: "App\\GraphQL\\Mutations\\AuthMutation@register")
+  
+  # Stock Management
   increaseStock(productCode: String!, quantity: Int!): Inventory
   decreaseStock(productCode: String!, quantity: Int!): Inventory
 }
