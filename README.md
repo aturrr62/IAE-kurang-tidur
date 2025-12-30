@@ -192,16 +192,8 @@ Buka GraphQL Playground:
 
 ---
 
-## 📚 Dokumentasi Untuk Tim
-
-| Dokumen | Deskripsi | Untuk Siapa |
-|---------|-----------|-------------|
-| [README.md](README.md) | Dokumentasi utama & pembagian tugas | **SEMUA TIM** |
-| [docs/TESTING_SCENARIOS.md](docs/TESTING_SCENARIOS.md) | 30+ skenario testing | **SEMUA TIM** |
-| [docs/COMPLIANCE_VERIFICATION_REPORT.md](docs/COMPLIANCE_VERIFICATION_REPORT.md) | Verifikasi compliance dengan proposal | Review |
-| [docs/DEPLOYMENT_CHECKLIST.md](docs/DEPLOYMENT_CHECKLIST.md) | Checklist sebelum deploy | Final Check |
-
 ---
+
 
 ## 🔧 Tech Stack
 - Laravel
