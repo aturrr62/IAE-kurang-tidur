@@ -196,10 +196,112 @@ Buka GraphQL Playground:
 
 
 ## 🔧 Tech Stack
-- Laravel
+- Laravel 10
 - GraphQL (Lighthouse)
-- MySQL
+- MySQL 8.0
 - Docker Compose
+- JWT (HS256) + API Key (HMAC-SHA256)
+
+---
+
+## 📂 Struktur Folder Project
+
+```
+iae-enterprise-integration/
+├── services/                          # Semua microservices
+│   ├── product-service/              # 🔵 TOKO - Manajemen Produk
+│   │   ├── app/
+│   │   │   ├── Models/               # Product model
+│   │   │   └── GraphQL/              # Product resolvers
+│   │   ├── database/
+│   │   │   ├── migrations/           # Product DB schema
+│   │   │   └── seeders/              # Product seeder
+│   │   ├── graphql/
+│   │   │   └── schema.graphql        # Product GraphQL schema
+│   │   ├── .env.example              # Product environment config
+│   │   └── Dockerfile
+│   │
+│   ├── order-service/                # 🔵 TOKO - Order Pelanggan
+│   │   ├── app/
+│   │   │   ├── Models/               # Order model
+│   │   │   └── GraphQL/              # Order resolvers
+│   │   ├── database/
+│   │   │   └── migrations/           # Order DB schema
+│   │   ├── graphql/
+│   │   │   └── schema.graphql        # Order GraphQL schema
+│   │   ├── .env.example              # Order environment config
+│   │   └── Dockerfile
+│   │
+│   ├── stock-service/                # 🟢 GUDANG - Auth + Inventory
+│   │   ├── app/
+│   │   │   ├── Models/
+│   │   │   │   └── User.php          # ⭐ User model (username, role)
+│   │   │   ├── Helpers/
+│   │   │   │   └── JwtHelper.php     # ⭐ JWT generation
+│   │   │   └── GraphQL/
+│   │   │       └── Mutations/
+│   │   │           └── AuthMutation.php  # ⭐ login, register, me
+│   │   ├── database/
+│   │   │   ├── migrations/
+│   │   │   │   ├── create_users_table.php       # ⭐ users table
+│   │   │   │   └── create_inventory_table.php   # ⭐ inventory table
+│   │   │   └── seeders/
+│   │   │       ├── UserSeeder.php              # ⭐ 3 users
+│   │   │       └── InventorySeeder.php         # ⭐ 10 products
+│   │   ├── graphql/
+│   │   │   └── schema.graphql        # ⭐ Auth + Stock schema
+│   │   ├── .env.example              # ⭐ JWT_SECRET config
+│   │   └── Dockerfile
+│   │
+│   └── shipping-service/             # 🟢 GUDANG - Warehouse Orders + Shipping
+│       ├── app/
+│       │   ├── Models/
+│       │   │   ├── WarehouseOrder.php
+│       │   │   └── Shipment.php
+│       │   ├── Helpers/
+│       │   │   └── JwtHelper.php     # ⭐ JWT verification
+│       │   ├── Http/Middleware/
+│       │   │   ├── JwtAuthMiddleware.php    # ⭐ Internal auth
+│       │   │   └── ApiKeyMiddleware.php     # ⭐ External auth (HMAC)
+│       │   └── GraphQL/
+│       │       ├── Mutations/
+│       │       │   └── RequestRestock.php   # ⭐ For Toko
+│       │       └── Queries/
+│       │           └── TrackOrder.php       # ⭐ For Toko
+│       ├── database/
+│       │   └── migrations/
+│       │       ├── create_warehouse_orders_table.php  # ⭐ Orders table
+│       │       └── create_shipments_table.php         # ⭐ Shipments table
+│       ├── graphql/
+│       │   └── schema.graphql        # ⭐ External + Internal API
+│       ├── .env.example              # ⭐ JWT + API Key config
+│       └── Dockerfile
+│
+├── docker-compose.yml                # ⭐ 4 services + 4 MySQL containers
+├── README.md                         # 📖 Dokumentasi ini
+├── LICENSE                           # MIT License
+└── .gitignore
+```
+
+### 🌟 File-File Penting untuk Tim
+
+**Untuk SEMUA Tim:**
+- `README.md` - Dokumentasi utama & pembagian tugas
+- `docker-compose.yml` - Konfigurasi Docker untuk semua services
+
+**Untuk Tim TOKO:**
+- `services/product-service/graphql/schema.graphql` - GraphQL schema produk
+- `services/order-service/graphql/schema.graphql` - GraphQL schema order
+- `services/stock-service/graphql/schema.graphql` - **CEK STOCK** dari Gudang
+- `services/shipping-service/graphql/schema.graphql` - **REQUEST RESTOCK** ke Gudang
+
+**Untuk Tim GUDANG (Kita):**
+- `services/stock-service/app/GraphQL/Mutations/AuthMutation.php` - Login/Register logic
+- `services/stock-service/app/Helpers/JwtHelper.php` - JWT generation
+- `services/shipping-service/app/GraphQL/Mutations/RequestRestock.php` - Handle request dari Toko
+- `services/shipping-service/app/Http/Middleware/ApiKeyMiddleware.php` - HMAC validation
+
+---
 
 ## Services
 ### Toko Domain
