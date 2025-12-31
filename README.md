@@ -66,11 +66,7 @@ mutation {
 - ✅ `trackOrder` endpoint untuk Toko
 - ✅ Internal endpoints (approve order, create shipment, dll)
 
-**🔨 Yang PERLU DIKERJAKAN (Opsional - Enhancement):**
-- [ ] Frontend dashboard untuk staff gudang
-- [ ] Testing semua endpoint (ikuti `docs/TESTING_SCENARIOS.md`)
-- [ ] Monitoring & logging
-- [ ] Rate limiting untuk API eksternal
+
 
 ---
 
@@ -191,6 +187,461 @@ Buka GraphQL Playground:
 - Shipping: http://localhost:8004/graphql
 
 ---
+
+## 🧪 TESTING GRAPHQL - PANDUAN LENGKAP
+
+### 📘 **Product Service (Port 8001)** - 🔵 TIM TOKO
+
+**Total Endpoints: 4**
+
+#### **Queries (3)**
+
+1️⃣ **Get All Products**
+```graphql
+query {
+  products {
+    id
+    code
+    name
+    category
+    price
+    stock
+    minStockThreshold
+  }
+}
+```
+**Test:** Cek apakah semua produk toko muncul
+
+---
+
+2️⃣ **Get Single Product**
+```graphql
+query {
+  product(id: 1) {
+    id
+    code
+    name
+    price
+    stock
+  }
+}
+```
+**Test:** Cek detail 1 produk
+
+---
+
+3️⃣ **Check Stock from Warehouse** (Integrasi ke Gudang)
+```graphql
+query {
+  checkStock(productCode: "ELEC001") {
+    productCode
+    available
+    warehouseStock
+  }
+}
+```
+**Test:** Cek stock dari gudang (integrasi lintas kelompok)
+
+---
+
+#### **Mutations (1)**
+
+4️⃣ **Decrease Stock** (Ketika ada pembelian)
+```graphql
+mutation {
+  decreaseStock(productId: 1, quantity: 5) {
+    id
+    code
+    stock
+  }
+}
+```
+**Test:** Kurangi stock ketika ada order pelanggan
+
+---
+
+### 📗 **Order Service (Port 8002)** - 🔵 TIM TOKO
+
+**Total Endpoints: 3**
+
+#### **Queries (1)**
+
+1️⃣ **Track Order Status**
+```graphql
+query {
+  trackOrder(orderCode: "ORD-001") {
+    orderCode
+    status
+    events
+  }
+}
+```
+**Test:** Tracking order pelanggan
+
+---
+
+#### **Mutations (2)**
+
+2️⃣ **Create Order** (Pelanggan beli produk)
+```graphql
+mutation {
+  createOrder(productId: 1, quantity: 3) {
+    success
+    orderId
+    message
+  }
+}
+```
+**Test:** Buat order baru dari pelanggan
+
+---
+
+3️⃣ **Request Restock to Warehouse** (Integrasi ke Gudang - WAJIB)
+```graphql
+mutation {
+  requestRestock(input: {
+    storeId: "STORE_01",
+    items: [
+      { productCode: "ELEC001", quantity: 50 }
+    ]
+  }) {
+    success
+    orderId
+    estimatedDelivery
+    message
+  }
+}
+```
+**Headers Required (HMAC):**
+```
+X-API-Key: TOKO_API_KEY_001
+X-Signature: <HMAC-SHA256 signature>
+X-Timestamp: 2025-12-31T10:00:00Z
+```
+**Test:** Request restock dari gudang (integrasi lintas kelompok)
+
+---
+
+### 📙 **Stock Service (Port 8003)** - 🟢 TIM GUDANG (KITA)
+
+**Total Endpoints: 7**
+
+#### **Authentication (3)**
+
+1️⃣ **Login (Dapat JWT Token)**
+```graphql
+mutation {
+  login(email: "admin@gudang.com", password: "password123") {
+    token
+    user {
+      id
+      username
+      name
+      email
+      role
+    }
+  }
+}
+```
+**Test:** Login staff gudang → dapat JWT token
+
+---
+
+2️⃣ **Register User Baru**
+```graphql
+mutation {
+  register(input: {
+    username: "staff001"
+    name: "Staff Gudang 1"
+    email: "staff001@gudang.com"
+    password: "password123"
+    role: "STAFF_GUDANG"
+  }) {
+    id
+    username
+    email
+    role
+  }
+}
+```
+**Test:** Daftar user baru
+
+---
+
+3️⃣ **Get Current User (Me)**
+```graphql
+query {
+  me {
+    id
+    username
+    name
+    email
+    role
+  }
+}
+```
+**Headers Required:**
+```
+Authorization: Bearer <JWT_TOKEN>
+```
+**Test:** Cek user yang login (pakai token dari login)
+
+---
+
+#### **Inventory Management (4)**
+
+4️⃣ **Check Stock 1 Produk**
+```graphql
+query {
+  checkStock(productCode: "ELEC001") {
+    id
+    productCode
+    productName
+    stock
+  }
+}
+```
+**Test:** Cek stock 1 produk di gudang
+
+---
+
+5️⃣ **Get All Inventories**
+```graphql
+query {
+  inventories {
+    id
+    productCode
+    productName
+    stock
+  }
+}
+```
+**Test:** Lihat semua stock gudang
+
+---
+
+6️⃣ **Increase Stock (Tambah Stock)**
+```graphql
+mutation {
+  increaseStock(productCode: "ELEC001", quantity: 100) {
+    id
+    productCode
+    productName
+    stock
+  }
+}
+```
+**Test:** Tambah stock produk di gudang
+
+---
+
+7️⃣ **Decrease Stock (Kurangi Stock)**
+```graphql
+mutation {
+  decreaseStock(productCode: "ELEC001", quantity: 50) {
+    id
+    productCode
+    productName
+    stock
+  }
+}
+```
+**Test:** Kurangi stock (ketika dikirim ke toko)
+
+---
+
+### 📕 **Shipping Service (Port 8004)** - 🟢 TIM GUDANG (KITA)
+
+**Total Endpoints: 8**
+
+#### **External API (Untuk Toko - WAJIB)**
+
+1️⃣ **Request Restock** (Endpoint untuk Toko)
+```graphql
+mutation {
+  requestRestock(input: {
+    storeId: "STORE_01"
+    productCode: "ELEC001"
+    quantity: 50
+    storeAddress: "Jl. Toko No. 1"
+  }) {
+    success
+    orderCode
+    estimatedDelivery
+    message
+  }
+}
+```
+**Headers Required (API Key + HMAC):**
+```
+X-API-Key: TOKO_API_KEY_001
+X-Signature: <HMAC-SHA256 signature>
+X-Timestamp: 2025-12-31T10:00:00Z
+```
+**Test:** Terima request restock dari Toko
+
+---
+
+2️⃣ **Track Order** (Toko tracking pengiriman)
+```graphql
+query {
+  trackOrder(orderCode: "WH-20251231-ABC123") {
+    orderCode
+    status
+    estimatedDelivery
+    events {
+      timestamp
+      description
+      status
+    }
+  }
+}
+```
+**Headers Required (API Key + HMAC):** Same as above
+**Test:** Toko tracking status pengiriman
+
+---
+
+#### **Internal API (Untuk Staff Gudang - JWT)**
+
+3️⃣ **Get All Warehouse Orders**
+```graphql
+query {
+  warehouseOrders {
+    id
+    tokoOrderCode
+    productCode
+    quantity
+    status
+    createdAt
+  }
+}
+```
+**Headers Required:**
+```
+Authorization: Bearer <JWT_TOKEN>
+```
+**Test:** Lihat semua order dari toko
+
+---
+
+4️⃣ **Get Single Warehouse Order**
+```graphql
+query {
+  warehouseOrder(id: 1) {
+    id
+    tokoOrderCode
+    productCode
+    quantity
+    status
+    shipment {
+      shippingCode
+      status
+    }
+  }
+}
+```
+**Test:** Detail 1 order warehouse
+
+---
+
+5️⃣ **Create Warehouse Order** (Internal)
+```graphql
+mutation {
+  createWarehouseOrder(input: {
+    tokoOrderCode: "TOKO-001"
+    productCode: "ELEC001"
+    quantity: 50
+    userId: 1
+  }) {
+    id
+    tokoOrderCode
+    status
+  }
+}
+```
+**Test:** Buat order warehouse manual
+
+---
+
+6️⃣ **Approve Warehouse Order**
+```graphql
+mutation {
+  approveWarehouseOrder(id: 1, status: "DITERIMA") {
+    id
+    tokoOrderCode
+    status
+  }
+}
+```
+**Test:** Staff gudang approve order
+
+---
+
+7️⃣ **Create Shipment**
+```graphql
+mutation {
+  createShipment(input: {
+    warehouseOrderId: 1
+    storeAddress: "Jl. Toko No. 1"
+    shippingCode: "SHIP-001"
+  }) {
+    id
+    shippingCode
+    status
+    storeAddress
+  }
+}
+```
+**Test:** Buat pengiriman setelah order di-approve
+
+---
+
+8️⃣ **Update Shipment Status**
+```graphql
+mutation {
+  updateShipmentStatus(id: 1, status: "DIKIRIM") {
+    id
+    shippingCode
+    status
+    shippedAt
+  }
+}
+```
+**Test:** Update status pengiriman (DIKIRIM, DITERIMA_TOKO)
+
+---
+
+## 📊 SUMMARY TESTING
+
+| Service | Total Endpoints | Queries | Mutations | Auth Required |
+|---------|-----------------|---------|-----------|---------------|
+| **Product** (Toko) | 4 | 3 | 1 | ❌ No |
+| **Order** (Toko) | 3 | 1 | 2 | ❌ No |
+| **Stock** (Gudang) | 7 | 3 | 4 | ⚠️ Some (JWT) |
+| **Shipping** (Gudang) | 8 | 3 | 5 | ⚠️ Mixed (JWT + API Key) |
+| **TOTAL** | **22** | **10** | **12** | - |
+
+---
+
+## 🎯 URUTAN TESTING YANG DISARANKAN
+
+### **Untuk Tim TOKO:**
+1. **Product Service** → Test `products`, `product(id)`, `checkStock`
+2. **Order Service** → Test `createOrder`
+3. **Integrasi** → Test `requestRestock` ke Shipping Service (butuh API Key + HMAC)
+4. **Tracking** → Test `trackOrder` dari Shipping Service
+
+### **Untuk Tim GUDANG (Kita):**
+1. **Stock Service** → `register` → `login` (dapat JWT)
+2. **Stock Service** → `me` (pakai JWT) → `inventories` → `checkStock`
+3. **Shipping Service** → Test `warehouseOrders` (pakai JWT)
+4. **Workflow Lengkap:**
+   - Toko request restock → `requestRestock`
+   - Staff gudang approve → `approveWarehouseOrder`
+   - Buat shipment → `createShipment`
+   - Update status → `updateShipmentStatus` (DIKIRIM → DITERIMA_TOKO)
+   - Toko tracking → `trackOrder`
 
 ---
 
