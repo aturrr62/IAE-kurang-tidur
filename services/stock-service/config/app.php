@@ -127,6 +127,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | JWT Configuration (Stock Service)
+    |--------------------------------------------------------------------------
+    |
+    | JWT Secret untuk authentication. HARUS SAMA dengan Shipping Service
+    | untuk shared authentication. External API Key untuk akses dari 
+    | Product Service (kelompok Toko).
+    |
+    */
+
+    'jwt_secret' => env('JWT_SECRET'),
+    'jwt_expiration' => env('JWT_EXPIRATION', 1800), // 30 minutes
+    'external_api_key' => env('EXTERNAL_API_KEY'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Maintenance Mode Driver
     |--------------------------------------------------------------------------
     |

@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Service GraphQL Playground</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: #2d3748;
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status {
+            padding: 6px 12px;
+            background: #48bb78;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .main {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+        }
+
+        .panel {
+            padding: 20px;
+        }
+
+        .panel-left {
+            border-right: 2px solid #e2e8f0;
+        }
+
+        .panel h2 {
+            color: #2d3748;
+            margin-bottom: 15px;
+            font-size: 16px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 250px;
+            padding: 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            resize: vertical;
+            background: #f7fafc;
+            transition: border-color 0.3s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            background: white;
+        }
+
+        .headers-section {
+            margin-top: 15px;
+        }
+
+        .headers-section label {
+            display: block;
+            color: #4a5568;
+            font-size: 13px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            background: #f7fafc;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+            background: white;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-execute {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            flex: 1;
+        }
+
+        .btn-execute:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-clear {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+
+        .btn-clear:hover {
+            background: #cbd5e0;
+        }
+
+        pre {
+            background: #2d3748;
+            color: #48bb78;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 13px;
+            min-height: 300px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .examples {
+            margin-top: 20px;
+            padding: 15px;
+            background: #edf2f7;
+            border-radius: 8px;
+        }
+
+        .examples h3 {
+            color: #2d3748;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .example-btn {
+            margin: 5px 5px 5px 0;
+            padding: 8px 12px;
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .example-btn:hover {
+            border-color: #667eea;
+            color: #667eea;
+        }
+
+        .loading {
+            display: none;
+            color: #667eea;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .info-box {
+            background: #bee3f8;
+            border-left: 4px solid #3182ce;
+            padding: 12px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #2c5282;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>
+                <span>🚀</span>
+                Stock Service GraphQL Playground
+            </h1>
+            <div class="status">ONLINE</div>
+        </div>
+
+        <div class="main">
+            <div class="panel panel-left">
+                <h2>📝 GraphQL Query</h2>
+                <div class="info-box">
+                    💡 Enter your GraphQL query or mutation below
+                </div>
+                <textarea id="query" placeholder="Enter your GraphQL query here...
+
+Example:
+mutation {
+  login(username: &quot;admin&quot;, password: &quot;password123&quot;) {
+    token
+    user {
+      username
+      name
+      role
+    }
+  }
+}">mutation {
+  login(username: "admin", password: "password123") {
+    token
+    user {
+      id
+      username
+      name
+      role
+      department
+    }
+    expiresIn
+  }
+}</textarea>
+
+                <div class="headers-section">
+                    <label for="authToken">🔐 Authorization Token (Optional)</label>
+                    <input type="text" id="authToken" placeholder="Paste your JWT token here after login...">
+                </div>
+
+                <div class="button-group">
+                    <button class="btn-execute" onclick="executeQuery()">
+                        <span>▶</span>
+                        Execute Query
+                    </button>
+                    <button class="btn-clear" onclick="clearAll()">Clear</button>
+                </div>
+
+                <div class="loading" id="loading">⏳ Executing query...</div>
+
+                <div class="examples">
+                    <h3>📚 Quick Examples:</h3>
+                    <button class="example-btn" onclick="loadExample('login')">Login</button>
+                    <button class="example-btn" onclick="loadExample('me')">Get Me</button>
+                    <button class="example-btn" onclick="loadExample('inventory')">List Inventory</button>
+                    <button class="example-btn" onclick="loadExample('checkStock')">Check Stock</button>
+                    <button class="example-btn" onclick="loadExample('alerts')">Low Stock Alerts</button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>📤 Response</h2>
+                <div class="info-box">
+                    ✨ Query results will appear here
+                </div>
+                <pre id="response">// Response will appear here...</pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const GRAPHQL_ENDPOINT = '/graphql';
+
+        const examples = {
+            login: `mutation {
+  login(username: "admin", password: "password123") {
+    token
+    user {
+      id
+      username
+      name
+      role
+      department
+    }
+    expiresIn
+  }
+}`,
+            me: `query {
+  me {
+    id
+    username
+    name
+    email
+    role
+    department
+  }
+}`,
+            inventory: `query {
+  inventoryList(first: 10) {
+    data {
+      id
+      product_code
+      product_name
+      current_stock
+      min_stock_level
+      max_stock_level
+    }
+    paginatorInfo {
+      total
+      currentPage
+      lastPage
+    }
+  }
+}`,
+            checkStock: `query {
+  checkStock(productCode: "ELECT-001") {
+    product_code
+    product_name
+    current_stock
+    available
+    status
+  }
+}`,
+            alerts: `query {
+  lowStockAlerts(first: 5) {
+    data {
+      id
+      product_code
+      product_name
+      current_stock
+      threshold
+      alert_type
+      is_resolved
+    }
+  }
+}`
+        };
+
+        function loadExample(type) {
+            document.getElementById('query').value = examples[type];
+        }
+
+        async function executeQuery() {
+            const query = document.getElementById('query').value;
+            const token = document.getElementById('authToken').value;
+            const responseEl = document.getElementById('response');
+            const loadingEl = document.getElementById('loading');
+
+            if (!query.trim()) {
+                responseEl.textContent = '⚠️ Please enter a GraphQL query';
+                return;
+            }
+
+            loadingEl.classList.add('active');
+            responseEl.textContent = '// Loading...';
+
+            try {
+                const headers = {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                };
+
+                if (token.trim()) {
+                    headers['Authorization'] = `Bearer ${token.trim()}`;
+                }
+
+                const response = await fetch(GRAPHQL_ENDPOINT, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({ query })
+                });
+
+                const data = await response.json();
+                responseEl.textContent = JSON.stringify(data, null, 2);
+
+                // Auto-save token if login successful
+                if (data.data && data.data.login && data.data.login.token) {
+                    document.getElementById('authToken').value = data.data.login.token;
+                }
+            } catch (error) {
+                responseEl.textContent = `❌ Error: ${error.message}`;
+            } finally {
+                loadingEl.classList.remove('active');
+            }
+        }
+
+        function clearAll() {
+            document.getElementById('query').value = '';
+            document.getElementById('authToken').value = '';
+            document.getElementById('response').textContent = '// Response will appear here...';
+        }
+
+        // Allow Enter + Ctrl/Cmd to execute
+        document.getElementById('query').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                executeQuery();
+            }
+        });
+    </script>
+</body>
+</html>

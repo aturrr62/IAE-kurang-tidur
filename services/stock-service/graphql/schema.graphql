@@ -1,62 +1,306 @@
 # ==============================
-# USER & AUTHENTICATION
+# SCALARS & DIRECTIVES
 # ==============================
-type User {
+scalar DateTime @scalar(class: "Nuwave\\Lighthouse\\Schema\\Types\\Scalars\\DateTime")
+
+# ==============================
+# ENUMS
+# ==============================
+enum Role {
+  admin
+  manager
+  staff
+}
+
+enum Department {
+  inventory
+  shipping
+  both
+}
+
+enum StockAction {
+  INCREMENT @enum(value: "INCREMENT")
+  DECREMENT @enum(value: "DECREMENT")
+  SET @enum(value: "SET")
+  RESERVE @enum(value: "RESERVE")
+  RELEASE @enum(value: "RELEASE")
+}
+
+enum AlertType {
+  low @enum(value: "low")
+  out @enum(value: "out")
+}
+
+# ==============================
+# TYPES - AUTHENTICATION & STAFF
+# ==============================
+type WarehouseStaff {
   id: ID!
   username: String!
   name: String!
   email: String!
-  role: String!
+  role: Role!
+  department: Department!
   createdAt: DateTime @rename(attribute: "created_at")
   updatedAt: DateTime @rename(attribute: "updated_at")
 }
 
 type AuthResponse {
   token: String!
-  user: User!
-}
-
-input RegisterInput {
-  username: String!
-  name: String
-  email: String!
-  password: String!
-  role: String
+  user: WarehouseStaff!
+  expiresIn: Int! # Token lifetime in seconds
 }
 
 # ==============================
-# INVENTORY & STOCK
+# TYPES - INVENTORY & STOCK
 # ==============================
 type Inventory {
   id: ID!
   productCode: String! @rename(attribute: "product_code")
   productName: String! @rename(attribute: "product_name")
-  stock: Int!
+  currentStock: Int! @rename(attribute: "current_stock")
+  minStockLevel: Int! @rename(attribute: "min_stock_level")
+  maxStockLevel: Int! @rename(attribute: "max_stock_level")
   createdAt: DateTime @rename(attribute: "created_at")
   updatedAt: DateTime @rename(attribute: "updated_at")
+  
+  # Relationships
+  transactions: [StockTransaction!]! @hasMany
+  alerts: [StockAlert!]! @hasMany
+}
+
+type StockTransaction {
+  id: ID!
+  productCode: String! @rename(attribute: "product_code")
+  quantity: Int!
+  action: StockAction!
+  note: String
+  stockBefore: Int! @rename(attribute: "stock_before")
+  stockAfter: Int! @rename(attribute: "stock_after")
+  staffId: ID @rename(attribute: "staff_id")
+  createdAt: DateTime! @rename(attribute: "created_at")
+  
+  # Relationships
+  inventory: Inventory @belongsTo(relation: "inventory")
+  staff: WarehouseStaff @belongsTo(relation: "staff")
+}
+
+type StockAlert {
+  id: ID!
+  productCode: String! @rename(attribute: "product_code")
+  alertType: AlertType! @rename(attribute: "alert_type")
+  currentStock: Int! @rename(attribute: "current_stock")
+  resolved: Boolean!
+  resolvedAt: DateTime @rename(attribute: "resolved_at")
+  resolvedBy: ID @rename(attribute: "resolved_by")
+  createdAt: DateTime! @rename(attribute: "created_at")
+  updatedAt: DateTime! @rename(attribute: "updated_at")
+  
+  # Relationships
+  inventory: Inventory @belongsTo(relation: "inventory")
+  resolver: WarehouseStaff @belongsTo(relation: "resolver")
+}
+
+# ==============================
+# RESPONSE TYPES
+# ==============================
+type StockCheckResult {
+  productCode: String!
+  productName: String
+  available: Boolean!
+  currentStock: Int!
+  requestedQuantity: Int
+  message: String
+}
+
+type BulkStockCheckResult {
+  results: [StockCheckResult!]!
+  allAvailable: Boolean!
+}
+
+# ==============================
+# INPUT TYPES
+# ==============================
+input RegisterStaffInput {
+  username: String! @rules(apply: ["required", "unique:warehouse_staff,username", "min:3"])
+  name: String! @rules(apply: ["required", "min:3"])
+  email: String! @rules(apply: ["required", "email", "unique:warehouse_staff,email"])
+  password: String! @rules(apply: ["required", "min:6"])
+  role: Role
+  department: Department
+}
+
+input UpdateStaffInput {
+  name: String
+  email: String @rules(apply: ["email"])
+  password: String @rules(apply: ["min:6"])
+  role: Role
+  department: Department
+}
+
+input UpdateStockInput {
+  productCode: String! @rules(apply: ["required", "exists:inventory,product_code"])
+  quantity: Int! @rules(apply: ["required", "integer", "min:1"])
+  action: StockAction!
+  note: String
+}
+
+input ReserveStockInput {
+  productCode: String! @rules(apply: ["required", "exists:inventory,product_code"])
+  quantity: Int! @rules(apply: ["required", "integer", "min:1"])
+  orderId: String
+}
+
+input BulkStockCheckInput {
+  productCode: String!
+  quantity: Int!
 }
 
 # ==============================
 # QUERIES
 # ==============================
 type Query {
-  # Stock Queries
-  checkStock(productCode: String! @eq(key: "product_code")): Inventory @find
-  inventories: [Inventory!]! @all
+  # ===== AUTHENTICATION =====
+  "Get current authenticated user (requires JWT token)"
+  me: WarehouseStaff @field(resolver: "App\\GraphQL\\Queries\\AuthQuery@me")
   
-  # Auth Query (Get current user from JWT)
-  me: User @field(resolver: "App\\GraphQL\\Mutations\\AuthMutation@me")
+  # ===== STAFF MANAGEMENT =====
+  "Get staff by ID (admin only)"
+  staffById(id: ID! @eq): WarehouseStaff 
+    @field(resolver: "App\\GraphQL\\Queries\\StaffQuery@staffById")
+  
+  "List all staff (admin/manager only)"
+  staffList(
+    role: Role @eq
+    department: Department @eq
+  ): [WarehouseStaff!]! 
+    @field(resolver: "App\\GraphQL\\Queries\\StaffQuery@staffList")
+  
+  # ===== STOCK QUERIES =====
+  "Check single product stock availability"
+  checkStock(
+    productCode: String! @eq(key: "product_code")
+    quantity: Int = 1
+  ): StockCheckResult 
+    @field(resolver: "App\\GraphQL\\Queries\\StockQuery@checkStock")
+  
+  "Bulk check multiple products stock"
+  bulkCheckStock(
+    items: [BulkStockCheckInput!]!
+  ): BulkStockCheckResult 
+    @field(resolver: "App\\GraphQL\\Queries\\StockQuery@bulkCheckStock")
+  
+  "Get inventory item by product code"
+  inventory(
+    productCode: String! @eq(key: "product_code")
+  ): Inventory @find
+  
+  "List all inventory items"
+  inventoryList(
+    search: String
+    lowStockOnly: Boolean
+  ): [Inventory!]! 
+    @field(resolver: "App\\GraphQL\\Queries\\StockQuery@inventoryList")
+  
+  "Get all inventories (alias for inventoryList - untuk kompatibilitas README)"
+  inventories: [Inventory!]! 
+    @field(resolver: "App\\GraphQL\\Queries\\StockQuery@inventories")
+  
+  # ===== ALERTS & MONITORING =====
+  "Get low stock alerts (unresolved)"
+  lowStockAlerts(
+    resolved: Boolean = false
+  ): [StockAlert!]! 
+    @field(resolver: "App\\GraphQL\\Queries\\StockQuery@lowStockAlerts")
+  
+  "Get stock transactions history"
+  stockTransactions(
+    productCode: String @eq(key: "product_code")
+    action: StockAction @eq
+    limit: Int = 50
+  ): [StockTransaction!]! 
+    @field(resolver: "App\\GraphQL\\Queries\\StockQuery@stockTransactions")
 }
 
 # ==============================
 # MUTATIONS
 # ==============================
 type Mutation {
-  # Authentication (Stock Service adalah Auth Provider)
-  login(email: String!, password: String!): AuthResponse @field(resolver: "App\\GraphQL\\Mutations\\AuthMutation@login")
-  register(input: RegisterInput!): User @field(resolver: "App\\GraphQL\\Mutations\\AuthMutation@register")
+  # ===== AUTHENTICATION =====
+  "Login and receive JWT token"
+  login(
+    username: String
+    email: String
+    password: String!
+  ): AuthResponse 
+    @field(resolver: "App\\GraphQL\\Mutations\\AuthMutation@login")
   
-  # Stock Management
-  increaseStock(productCode: String!, quantity: Int!): Inventory
-  decreaseStock(productCode: String!, quantity: Int!): Inventory
+  "Register new user (self-registration)"
+  register(input: RegisterStaffInput!): WarehouseStaff 
+    @field(resolver: "App\\GraphQL\\Mutations\\AuthMutation@register")
+  
+  "Logout (blacklist current token)"
+  logout: Boolean 
+    @field(resolver: "App\\GraphQL\\Mutations\\AuthMutation@logout")
+  
+  # ===== STAFF MANAGEMENT =====
+  "Register new warehouse staff (admin only)"
+  registerStaff(input: RegisterStaffInput!): WarehouseStaff 
+    @field(resolver: "App\\GraphQL\\Mutations\\StaffMutation@registerStaff")
+  
+  "Update staff information"
+  updateStaff(
+    id: ID!
+    input: UpdateStaffInput!
+  ): WarehouseStaff 
+    @field(resolver: "App\\GraphQL\\Mutations\\StaffMutation@updateStaff")
+  
+  "Delete staff (admin only)"
+  deleteStaff(id: ID!): Boolean 
+    @field(resolver: "App\\GraphQL\\Mutations\\StaffMutation@deleteStaff")
+  
+  # ===== STOCK MANAGEMENT =====
+  "Update stock (increment/decrement/set)"
+  updateStock(input: UpdateStockInput!): Inventory 
+    @field(resolver: "App\\GraphQL\\Mutations\\StockMutation@updateStock")
+  
+  "Increase stock (shortcut for INCREMENT action - untuk kompatibilitas README)"
+  increaseStock(
+    productCode: String!
+    quantity: Int!
+  ): Inventory 
+    @field(resolver: "App\\GraphQL\\Mutations\\StockMutation@increaseStock")
+  
+  "Decrease stock (shortcut for DECREMENT action - untuk kompatibilitas README)"
+  decreaseStock(
+    productCode: String!
+    quantity: Int!
+  ): Inventory 
+    @field(resolver: "App\\GraphQL\\Mutations\\StockMutation@decreaseStock")
+  
+  "Reserve stock for order processing"
+  reserveStock(input: ReserveStockInput!): StockCheckResult 
+    @field(resolver: "App\\GraphQL\\Mutations\\StockMutation@reserveStock")
+  
+  "Release reserved stock (cancel order)"
+  releaseStock(
+    productCode: String!
+    quantity: Int!
+    orderId: String
+  ): Inventory 
+    @field(resolver: "App\\GraphQL\\Mutations\\StockMutation@releaseStock")
+  
+  "Adjust stock directly (admin/manager only)"
+  adjustStock(
+    productCode: String!
+    newStock: Int!
+    note: String
+  ): Inventory 
+    @field(resolver: "App\\GraphQL\\Mutations\\StockMutation@adjustStock")
+  
+  # ===== ALERT MANAGEMENT =====
+  "Resolve stock alert"
+  resolveAlert(alertId: ID!): StockAlert 
+    @field(resolver: "App\\GraphQL\\Mutations\\StockMutation@resolveAlert")
 }
+

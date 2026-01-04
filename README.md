@@ -233,8 +233,18 @@ Password root: `root`
 ```
 
 ## Akses GraphQL Playground
-- Product: [http://localhost:8001/graphql](http://localhost:8001/graphql)
-- Order: [http://localhost:8002/graphql](http://localhost:8002/graphql)
+- **Product**: http://localhost:8001/graphql
+- **Order**: http://localhost:8002/graphql
+- **Stock (Gudang)**: http://localhost:8003/graphql-playground ⭐
+- **Shipping (Gudang)**: http://localhost:8004/graphql-playground ⭐
+
+### 🔑 Login Credentials (Stock Service)
+```
+Admin      → Username: admin        | Password: admin123
+Manager    → Username: manager_inv  | Password: manager123
+Staff Ship → Username: staff_ship   | Password: staff123
+Staff Inv  → Username: staff_inv    | Password: staff123
+```
 ## 🧾 Narasi Laporan (Akademis)
 > Sistem backend dikembangkan menggunakan arsitektur microservice dalam satu monorepo yang terdiri dari empat service, yaitu Product Service dan Order Service untuk domain Toko, serta Stock Service dan Shipping Service untuk domain Gudang. Seluruh service dikembangkan menggunakan Laravel 10 dan berkomunikasi secara eksternal maupun internal menggunakan GraphQL (Lighthouse). Setiap service memiliki database fisik yang terisolasi melalui container Docker terpisah untuk menjamin independensi data sesuai prinsip microservices.
 

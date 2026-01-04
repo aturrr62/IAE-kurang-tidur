@@ -1,0 +1,324 @@
+# ========================================
+# STOCK SERVICE - GraphQL Examples
+# Port: 8003
+# Endpoint: http://localhost:8003/graphql
+# Playground: http://localhost:8003/graphql-playground
+# ========================================
+
+# ========================================
+# 1. AUTHENTICATION - Login (with username)
+# ========================================
+mutation LoginWithUsername {
+  login(username: "admin", password: "admin123") {
+    token
+    tokenType
+    expiresIn
+    user {
+      id
+      username
+      email
+      fullName
+      role
+      department
+    }
+  }
+}
+
+# ========================================
+# 2. AUTHENTICATION - Login (with email)
+# ========================================
+mutation LoginWithEmail {
+  login(email: "admin@warehouse.com", password: "admin123") {
+    token
+    tokenType
+    expiresIn
+    user {
+      id
+      username
+      email
+      fullName
+      role
+      department
+    }
+  }
+}
+
+# ========================================
+# 3. AUTHENTICATION - Register (Self Registration)
+# ========================================
+mutation RegisterNewStaff {
+  register(input: {
+    username: "newstaff"
+    email: "newstaff@warehouse.com"
+    password: "password123"
+    fullName: "New Staff Member"
+    role: staff
+    department: inventory
+  }) {
+    id
+    username
+    email
+    fullName
+    role
+    department
+    createdAt
+  }
+}
+
+# ========================================
+# 4. AUTHENTICATION - Get Current User (requires JWT token)
+# ========================================
+# Headers: { "Authorization": "Bearer YOUR_TOKEN_HERE" }
+query GetCurrentUser {
+  me {
+    id
+    username
+    email
+    fullName
+    role
+    department
+    isActive
+    createdAt
+  }
+}
+
+# ========================================
+# 5. INVENTORY - Check Stock (single product)
+# ========================================
+query CheckStock {
+  checkStock(productCode: "ELECT-001") {
+    productCode
+    productName
+    available
+    currentStock
+    requestedQuantity
+    message
+  }
+}
+
+# ========================================
+# 6. INVENTORY - Get All Inventories (simple list)
+# ========================================
+query GetAllInventories {
+  inventories {
+    id
+    productCode
+    productName
+    currentStock
+    minimumStock
+    maximumStock
+    location
+    lastRestockedAt
+    updatedAt
+  }
+}
+
+# ========================================
+# 7. INVENTORY - Increase Stock
+# ========================================
+# Headers: { "Authorization": "Bearer YOUR_TOKEN_HERE" }
+mutation IncreaseStock {
+  increaseStock(productCode: "ELECT-001", quantity: 50) {
+    id
+    productCode
+    productName
+    currentStock
+    minimumStock
+    maximumStock
+    location
+    lastRestockedAt
+    updatedAt
+  }
+}
+
+# ========================================
+# 8. INVENTORY - Decrease Stock
+# ========================================
+# Headers: { "Authorization": "Bearer YOUR_TOKEN_HERE" }
+mutation DecreaseStock {
+  decreaseStock(productCode: "ELECT-001", quantity: 10) {
+    id
+    productCode
+    productName
+    currentStock
+    minimumStock
+    maximumStock
+    location
+    lastRestockedAt
+    updatedAt
+  }
+}
+
+# ========================================
+# BONUS: Advanced Queries
+# ========================================
+
+# Get Inventory List with Filters
+query GetInventoryWithFilters {
+  inventoryList(
+    search: "laptop"
+    minStock: 10
+    maxStock: 100
+    location: "A1"
+  ) {
+    id
+    productCode
+    productName
+    currentStock
+    location
+  }
+}
+
+# Bulk Check Stock (multiple products)
+query BulkCheckStock {
+  bulkCheckStock(productCodes: ["ELECT-001", "ELECT-002", "ELECT-003"]) {
+    productCode
+    productName
+    available
+    currentStock
+    message
+  }
+}
+
+# Get Low Stock Alerts
+query GetLowStockAlerts {
+  lowStockAlerts {
+    id
+    productCode
+    productName
+    currentStock
+    alertType
+    message
+    resolved
+    createdAt
+  }
+}
+
+# Get Stock Transactions History
+query GetStockTransactions {
+  stockTransactions(
+    limit: 10
+    orderBy: "created_at"
+    orderDirection: "desc"
+  ) {
+    id
+    productCode
+    quantity
+    action
+    note
+    staffId
+    createdAt
+  }
+}
+
+# ========================================
+# BONUS: Advanced Mutations (requires JWT)
+# ========================================
+
+# Update Stock (flexible action)
+mutation UpdateStockFlexible {
+  updateStock(input: {
+    productCode: "ELECT-001"
+    quantity: 100
+    action: SET
+    note: "Manual adjustment for inventory audit"
+  }) {
+    id
+    productCode
+    productName
+    currentStock
+    lastRestockedAt
+  }
+}
+
+# Reserve Stock (for order processing)
+mutation ReserveStock {
+  reserveStock(input: {
+    productCode: "ELECT-002"
+    quantity: 5
+    orderId: "ORD-12345"
+  }) {
+    productCode
+    productName
+    available
+    currentStock
+    requestedQuantity
+    message
+  }
+}
+
+# Release Stock (cancel reservation)
+mutation ReleaseStock {
+  releaseStock(
+    productCode: "ELECT-002"
+    quantity: 5
+    orderId: "ORD-12345"
+  ) {
+    id
+    productCode
+    currentStock
+  }
+}
+
+# Adjust Stock (admin/manager only)
+mutation AdjustStock {
+  adjustStock(
+    productCode: "ELECT-003"
+    newStock: 75
+    note: "Stock opname adjustment"
+  ) {
+    id
+    productCode
+    currentStock
+    lastRestockedAt
+  }
+}
+
+# Resolve Stock Alert
+mutation ResolveStockAlert {
+  resolveAlert(alertId: 1) {
+    id
+    productCode
+    resolved
+    resolvedAt
+    resolvedByStaffId
+  }
+}
+
+# ========================================
+# TESTING WORKFLOW
+# ========================================
+
+# Step 1: Login to get JWT token
+# mutation { login(username: "admin", password: "admin123") { token } }
+
+# Step 2: Copy token and add to HTTP Headers in Playground:
+# {
+#   "Authorization": "Bearer YOUR_TOKEN_HERE"
+# }
+
+# Step 3: Test authenticated endpoints (me, increaseStock, decreaseStock, etc.)
+
+# Step 4: Test unauthenticated endpoints (checkStock, inventories)
+
+# ========================================
+# DEFAULT CREDENTIALS
+# ========================================
+# Username: admin          | Password: admin123     | Role: admin     | Department: both
+# Username: manager_inv    | Password: manager123   | Role: manager   | Department: inventory
+# Username: staff_ship     | Password: staff123     | Role: staff     | Department: shipping
+# Username: staff_inv      | Password: staff123     | Role: staff     | Department: inventory
+
+# ========================================
+# SEEDED PRODUCTS
+# ========================================
+# ELECT-001: Laptop Dell XPS 15 (Stock: 50)
+# ELECT-002: Smartphone Samsung Galaxy S21 (Stock: 120)
+# ELECT-003: Monitor LG UltraWide 34" (Stock: 30)
+# ELECT-004: Keyboard Mechanical Logitech (Stock: 75)
+# ELECT-005: Mouse Wireless Logitech MX (Stock: 100)
+# ELECT-006: Headset Sony WH-1000XM4 (Stock: 45)
+# ELECT-007: Webcam Logitech C920 (Stock: 60)
+# ELECT-008: SSD Samsung 1TB (Stock: 8) <- LOW STOCK ALERT
+# ELECT-009: RAM DDR4 16GB Corsair (Stock: 25)
+# ELECT-010: Power Bank Anker 20000mAh (Stock: 0) <- OUT OF STOCK ALERT

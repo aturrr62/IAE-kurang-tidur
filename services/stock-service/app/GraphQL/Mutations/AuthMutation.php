@@ -2,94 +2,128 @@
 
 namespace App\GraphQL\Mutations;
 
-use App\Models\User;
-use App\Helpers\JwtHelper;
+use App\Models\WarehouseStaff;
+use App\Services\JwtService;
 use Illuminate\Support\Facades\Hash;
-use GraphQL\Error\Error;
+use GraphQL\Type\Definition\ResolveInfo;
+use Nuwave\Lighthouse\Support\Contracts\GraphQLContext;
 
+/**
+ * AuthMutation
+ * 
+ * Resolver untuk authentication mutations
+ * Stock Service sebagai Auth Provider
+ */
 class AuthMutation
 {
-    /**
-     * User login - generates JWT token
-     *
-     * @param null $_
-     * @param array{email: string, password: string} $args
-     * @return array
-     */
-    public function login($_, array $args): array
-    {
-        $user = User::where('email', $args['email'])->first();
+    protected JwtService $jwtService;
 
-        if (!$user || !Hash::check($args['password'], $user->password)) {
-            throw new Error('Invalid email or password');
+    public function __construct(JwtService $jwtService)
+    {
+        $this->jwtService = $jwtService;
+    }
+
+    /**
+     * Mutation: login
+     * 
+     * Authenticate staff and return JWT token
+     * 
+     * Response format:
+     * {
+     *   token: "eyJ0eXAiOiJKV1QiLCJhbGc...",
+     *   user: { id, username, name, email, role, department },
+     *   expiresIn: 1800
+     * }
+     * 
+     * @return array AuthResponse
+     */
+    public function login($_, array $args, GraphQLContext $context, ResolveInfo $resolveInfo): array
+    {
+        // Support login with username OR email
+        $identifier = $args['username'] ?? $args['email'] ?? null;
+        $password = $args['password'];
+
+        if (!$identifier) {
+            throw new \Exception('Username or email is required');
         }
 
-        $token = JwtHelper::generateToken($user);
+        // Find user by username or email
+        $staff = WarehouseStaff::where('username', $identifier)
+                    ->orWhere('email', $identifier)
+                    ->first();
+
+        if (!$staff) {
+            throw new \Exception('Invalid credentials');
+        }
+
+        // Verify password
+        if (!Hash::check($password, $staff->password)) {
+            throw new \Exception('Invalid credentials');
+        }
+
+        // Generate JWT token
+        $tokenData = $this->jwtService->generateToken($staff);
 
         return [
-            'token' => $token,
-            'user' => $user,
+            'token' => $tokenData['token'],
+            'user' => $staff,
+            'expiresIn' => $tokenData['expiresIn'],
         ];
     }
 
     /**
-     * Register new user
-     *
-     * @param null $_
-     * @param array{input: array} $args
-     * @return \App\Models\User
+     * Mutation: register
+     * 
+     * Self-registration for new users
+     * 
+     * @return WarehouseStaff
      */
-    public function register($_, array $args): User
+    public function register($_, array $args): WarehouseStaff
     {
         $input = $args['input'];
 
-        // Validate unique username and email
-        if (User::where('username', $input['username'])->exists()) {
-            throw new Error('Username already taken');
-        }
-
-        if (User::where('email', $input['email'])->exists()) {
-            throw new Error('Email already registered');
-        }
-
-        // Create user with auto-hashed password (via casts)
-        $user = User::create([
+        // Create new staff with default role
+        $staff = WarehouseStaff::create([
             'username' => $input['username'],
-            'name' => $input['name'] ?? $input['username'],
+            'name' => $input['name'],
             'email' => $input['email'],
-            'password' => $input['password'], // Will be auto-hashed
-            'role' => $input['role'] ?? 'STAFF_GUDANG',
+            'password' => $input['password'], // Will be auto-hashed by model
+            'role' => $input['role'] ?? 'staff',
+            'department' => $input['department'] ?? 'inventory',
         ]);
 
-        return $user;
+        return $staff;
     }
 
     /**
-     * Get current authenticated user from JWT token
-     *
-     * @param null $_
-     * @param array $args
-     * @param array $context
-     * @return \App\Models\User|null
+     * Mutation: logout
+     * 
+     * Blacklist current JWT token
+     * 
+     * @return bool
      */
-    public function me($_, array $args, array $context): ?User
+    public function logout($_, array $args, GraphQLContext $context, ResolveInfo $resolveInfo): bool
     {
-        // Extract token from request header
-        $authHeader = $context['request']->header('Authorization');
-        $token = JwtHelper::extractTokenFromHeader($authHeader);
+        $request = $context->request();
+        $authHeader = $request->header('Authorization');
+
+        if (!$authHeader) {
+            throw new \Exception('No authorization header provided');
+        }
+
+        $token = $this->jwtService->extractTokenFromHeader($authHeader);
 
         if (!$token) {
-            throw new Error('No token provided');
+            throw new \Exception('Invalid authorization header format');
         }
 
-        // Get user data from token
-        $userData = JwtHelper::getUserFromToken($token);
+        // Blacklist token
+        $success = $this->jwtService->blacklistToken($token);
 
-        if (!$userData) {
-            throw new Error('Invalid or expired token');
+        if (!$success) {
+            throw new \Exception('Failed to logout');
         }
 
-        // Fetch user from database
-        return User::find($userData['id']);
+        return true;
     }
 }
