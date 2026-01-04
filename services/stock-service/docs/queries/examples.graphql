@@ -1,0 +1,577 @@
+# GraphQL Query Examples for Testing
+
+## Authentication Queries
+
+### Login
+```graphql
+mutation Login {
+  login(username: "admin", password: "admin123") {
+    token
+    expiresIn
+    user {
+      id
+      username
+      name
+      email
+      role
+      department
+    }
+  }
+}
+```
+
+### Get Current User
+```graphql
+query GetMe {
+  me {
+    id
+    username
+    name
+    email
+    role
+    department
+    createdAt
+    updatedAt
+  }
+}
+```
+
+### Logout
+```graphql
+mutation Logout {
+  logout
+}
+```
+
+## Stock Checking (For Integration)
+
+### Single Product Check
+```graphql
+query CheckSingleStock {
+  checkStock(productCode: "ELECT-001", quantity: 5) {
+    productCode
+    productName
+    available
+    currentStock
+    requestedQuantity
+    message
+  }
+}
+```
+
+### Bulk Stock Check
+```graphql
+query BulkStockCheck {
+  bulkCheckStock(items: [
+    { productCode: "ELECT-001", quantity: 5 },
+    { productCode: "ELECT-002", quantity: 10 },
+    { productCode: "ELECT-003", quantity: 3 }
+  ]) {
+    allAvailable
+    results {
+      productCode
+      productName
+      available
+      currentStock
+      requestedQuantity
+      message
+    }
+  }
+}
+```
+
+### Get Inventory Item
+```graphql
+query GetInventoryItem {
+  inventory(productCode: "ELECT-001") {
+    id
+    productCode
+    productName
+    currentStock
+    minStockLevel
+    maxStockLevel
+    createdAt
+    updatedAt
+  }
+}
+```
+
+### List All Inventory
+```graphql
+query ListAllInventory {
+  inventoryList {
+    id
+    productCode
+    productName
+    currentStock
+    minStockLevel
+    maxStockLevel
+  }
+}
+```
+
+### List Low Stock Items
+```graphql
+query LowStockItems {
+  inventoryList(lowStockOnly: true) {
+    productCode
+    productName
+    currentStock
+    minStockLevel
+  }
+}
+```
+
+### Search Inventory
+```graphql
+query SearchInventory {
+  inventoryList(search: "Laptop") {
+    productCode
+    productName
+    currentStock
+  }
+}
+```
+
+## Stock Management
+
+### Increment Stock
+```graphql
+mutation IncrementStock {
+  updateStock(input: {
+    productCode: "ELECT-001"
+    quantity: 50
+    action: INCREMENT
+    note: "Restocking from supplier"
+  }) {
+    id
+    productCode
+    productName
+    currentStock
+    minStockLevel
+    maxStockLevel
+  }
+}
+```
+
+### Decrement Stock
+```graphql
+mutation DecrementStock {
+  updateStock(input: {
+    productCode: "ELECT-001"
+    quantity: 10
+    action: DECREMENT
+    note: "Damaged items removed"
+  }) {
+    productCode
+    productName
+    currentStock
+  }
+}
+```
+
+### Reserve Stock for Order
+```graphql
+mutation ReserveStockForOrder {
+  reserveStock(input: {
+    productCode: "ELECT-001"
+    quantity: 5
+    orderId: "ORD-2024-001"
+  }) {
+    productCode
+    productName
+    available
+    currentStock
+    requestedQuantity
+    message
+  }
+}
+```
+
+### Release Reserved Stock
+```graphql
+mutation ReleaseReservedStock {
+  releaseStock(
+    productCode: "ELECT-001"
+    quantity: 5
+    orderId: "ORD-2024-001"
+  ) {
+    productCode
+    productName
+    currentStock
+  }
+}
+```
+
+### Adjust Stock (Admin/Manager Only)
+```graphql
+mutation AdjustStockLevel {
+  adjustStock(
+    productCode: "ELECT-001"
+    newStock: 100
+    note: "Stock opname correction - physical count"
+  ) {
+    productCode
+    productName
+    currentStock
+  }
+}
+```
+
+## Staff Management
+
+### Register New Staff (Admin Only)
+```graphql
+mutation RegisterNewStaff {
+  registerStaff(input: {
+    username: "staff_test"
+    name: "Test Staff"
+    email: "test@warehouse.com"
+    password: "test123"
+    role: staff
+    department: inventory
+  }) {
+    id
+    username
+    name
+    email
+    role
+    department
+    createdAt
+  }
+}
+```
+
+### Update Staff
+```graphql
+mutation UpdateStaffProfile {
+  updateStaff(id: 2, input: {
+    name: "Updated Staff Name"
+    email: "updated@warehouse.com"
+  }) {
+    id
+    username
+    name
+    email
+    updatedAt
+  }
+}
+```
+
+### Update Staff Password
+```graphql
+mutation ChangePassword {
+  updateStaff(id: 2, input: {
+    password: "newpassword123"
+  }) {
+    id
+    username
+    updatedAt
+  }
+}
+```
+
+### Delete Staff (Admin Only)
+```graphql
+mutation DeleteStaffMember {
+  deleteStaff(id: 4)
+}
+```
+
+### Get Staff by ID (Admin Only)
+```graphql
+query GetStaffById {
+  staffById(id: 2) {
+    id
+    username
+    name
+    email
+    role
+    department
+    createdAt
+    updatedAt
+  }
+}
+```
+
+### List All Staff (Admin/Manager Only)
+```graphql
+query ListAllStaff {
+  staffList {
+    id
+    username
+    name
+    email
+    role
+    department
+    createdAt
+  }
+}
+```
+
+### Filter Staff by Role
+```graphql
+query FilterStaffByRole {
+  staffList(role: manager) {
+    id
+    username
+    name
+    role
+    department
+  }
+}
+```
+
+### Filter Staff by Department
+```graphql
+query FilterStaffByDepartment {
+  staffList(department: inventory) {
+    id
+    username
+    name
+    role
+    department
+  }
+}
+```
+
+## Monitoring & Alerts
+
+### Get Active Alerts
+```graphql
+query GetActiveAlerts {
+  lowStockAlerts(resolved: false) {
+    id
+    productCode
+    alertType
+    currentStock
+    resolved
+    createdAt
+    inventory {
+      productName
+      minStockLevel
+    }
+  }
+}
+```
+
+### Get Resolved Alerts
+```graphql
+query GetResolvedAlerts {
+  lowStockAlerts(resolved: true) {
+    id
+    productCode
+    alertType
+    resolved
+    resolvedAt
+    resolver {
+      name
+      role
+    }
+  }
+}
+```
+
+### Resolve Alert
+```graphql
+mutation ResolveStockAlert {
+  resolveAlert(alertId: 1) {
+    id
+    productCode
+    alertType
+    resolved
+    resolvedAt
+    resolver {
+      id
+      name
+      role
+    }
+  }
+}
+```
+
+### Get Stock Transaction History
+```graphql
+query GetStockTransactions {
+  stockTransactions(limit: 20) {
+    id
+    productCode
+    quantity
+    action
+    note
+    stockBefore
+    stockAfter
+    createdAt
+    staff {
+      name
+      role
+    }
+    inventory {
+      productName
+    }
+  }
+}
+```
+
+### Get Transactions for Specific Product
+```graphql
+query GetProductTransactions {
+  stockTransactions(productCode: "ELECT-001", limit: 10) {
+    id
+    quantity
+    action
+    note
+    stockBefore
+    stockAfter
+    createdAt
+    staff {
+      name
+      username
+    }
+  }
+}
+```
+
+### Filter Transactions by Action
+```graphql
+query GetReserveTransactions {
+  stockTransactions(action: RESERVE, limit: 10) {
+    id
+    productCode
+    quantity
+    note
+    stockBefore
+    stockAfter
+    createdAt
+    inventory {
+      productName
+    }
+  }
+}
+```
+
+## Complex Queries with Relationships
+
+### Inventory with Alerts and Transactions
+```graphql
+query InventoryDetail {
+  inventory(productCode: "ELECT-001") {
+    id
+    productCode
+    productName
+    currentStock
+    minStockLevel
+    maxStockLevel
+    createdAt
+    
+    alerts {
+      id
+      alertType
+      resolved
+      createdAt
+    }
+    
+    transactions {
+      id
+      quantity
+      action
+      note
+      createdAt
+      staff {
+        name
+      }
+    }
+  }
+}
+```
+
+## Variables Examples
+
+### Using Variables for Flexible Queries
+```graphql
+query CheckStockWithVariables($code: String!, $qty: Int!) {
+  checkStock(productCode: $code, quantity: $qty) {
+    productCode
+    available
+    currentStock
+    requestedQuantity
+    message
+  }
+}
+
+# Variables:
+{
+  "code": "ELECT-001",
+  "qty": 5
+}
+```
+
+### Bulk Check with Variables
+```graphql
+query BulkCheckWithVariables($items: [BulkStockCheckInput!]!) {
+  bulkCheckStock(items: $items) {
+    allAvailable
+    results {
+      productCode
+      available
+      currentStock
+      message
+    }
+  }
+}
+
+# Variables:
+{
+  "items": [
+    { "productCode": "ELECT-001", "quantity": 5 },
+    { "productCode": "ELECT-002", "quantity": 10 }
+  ]
+}
+```
+
+### Update Stock with Variables
+```graphql
+mutation UpdateStockWithVariables($input: UpdateStockInput!) {
+  updateStock(input: $input) {
+    productCode
+    currentStock
+  }
+}
+
+# Variables:
+{
+  "input": {
+    "productCode": "ELECT-001",
+    "quantity": 20,
+    "action": "INCREMENT",
+    "note": "Restocking"
+  }
+}
+```
+
+## Authorization Examples
+
+### With JWT Token (Internal)
+```
+Headers:
+{
+  "Authorization": "Bearer eyJ0eXAiOiJKV1QiLCJhbGc..."
+}
+```
+
+### With API Key (External)
+```
+Headers:
+{
+  "X-API-Key": "stock_api_key_external_2024"
+}
+```
+
+### Both (Fallback)
+```
+Headers:
+{
+  "Authorization": "Bearer eyJ0eXAiOiJKV1QiLCJhbGc...",
+  "X-API-Key": "stock_api_key_external_2024"
+}
+```
