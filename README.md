@@ -228,7 +228,7 @@ Jika ingin mengakses database via Navicat/DBeaver dari PC host:
 - **Product DB**: localhost port `3306`
 - **Order DB**: localhost port `3307`
 - **Stock DB**: localhost port `3308`
-- **Shipping DB**: localhost port `3309`
+- **Shipping DB**: localhost port `3310` ✅ (Working, tested)
 Password root: `root`
 ```
 
