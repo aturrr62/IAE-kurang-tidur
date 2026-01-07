@@ -15,7 +15,7 @@ return [
 
     'defaults' => [
         'guard' => 'web',
-        'passwords' => 'users',
+        'passwords' => 'warehouse_staff',
     ],
 
     /*
@@ -38,7 +38,7 @@ return [
     'guards' => [
         'web' => [
             'driver' => 'session',
-            'provider' => 'users',
+            'provider' => 'warehouse_staff',
         ],
     ],
 
@@ -60,11 +60,12 @@ return [
     */
 
     'providers' => [
-        'users' => [
+        'warehouse_staff' => [
             'driver' => 'eloquent',
-            'model' => App\Models\User::class,
+            'model' => App\Models\WarehouseStaff::class,
         ],
 
+        // Legacy users table (unused - kept for Laravel compatibility)
         // 'users' => [
         //     'driver' => 'database',
         //     'table' => 'users',
@@ -91,8 +92,8 @@ return [
     */
 
     'passwords' => [
-        'users' => [
-            'provider' => 'users',
+        'warehouse_staff' => [
+            'provider' => 'warehouse_staff',
             'table' => 'password_reset_tokens',
             'expire' => 60,
             'throttle' => 60,
