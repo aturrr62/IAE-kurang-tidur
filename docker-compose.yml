@@ -31,7 +31,7 @@ services:
     networks:
       - iae-network
 
-  # Stock Service Database (Port 3308)
+  # Stock Service Database (Port 3311)
   mysql-stock:
     image: mysql:8.0
     container_name: stock-db
@@ -42,7 +42,7 @@ services:
       MYSQL_USER: stock_user
       MYSQL_PASSWORD: stock_password
     ports:
-      - "3308:3306"
+      - "3311:3306"
     volumes:
       - stock-db-data:/var/lib/mysql
     networks:
@@ -60,12 +60,19 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: shipping_db
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
     ports:
-      - "3309:3306"
+      - "3310:3306"
     volumes:
       - shipping-db-data:/var/lib/mysql
     networks:
       - iae-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # --- SERVICES ---
 
