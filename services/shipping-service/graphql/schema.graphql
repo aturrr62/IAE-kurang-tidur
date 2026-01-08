@@ -1,138 +1,223 @@
-# ==============================
-# USER & AUTH (from Stock Service)
-# ==============================
-type User {
-  id: ID!
-  name: String!
-  email: String!
+# Update graphql schema to match the project proposal and required external/internal operations
+
+scalar DateTime @scalar(class: "Nuwave\\Lighthouse\\Schema\\Types\\Scalars\\DateTime")
+
+# ============ QUERIES (External untuk Toko) ============
+type Query {
+  "Lacak status order dan pengiriman (Untuk Toko)"
+  trackOrder(orderCode: String!): OrderTrackingStatus!
+    @field(resolver: "App\\GraphQL\\Queries\\TrackOrder")
+    # @middleware(checks: ["api.key"])
+
+  "Dapatkan detail order lengkap (Untuk Toko)"
+  getOrderDetails(orderCode: String!): WarehouseOrder
+    @field(resolver: "App\\GraphQL\\Queries\\GetOrderDetails")
+
+  "History order untuk toko tertentu (Untuk Toko)"
+  getStoreOrders(
+    storeCode: String!
+    status: OrderStatus
+    fromDate: DateTime
+    toDate: DateTime
+  ): [OrderSummary!]!
+    @field(resolver: "App\\GraphQL\\Queries\\GetStoreOrders")
+
+  # ============ INTERNAL QUERIES (Gunakan JWT) ============
+  "Daftar order yang perlu diproses (Internal Gudang)"
+  pendingOrders(
+    priority: PriorityLevel
+    department: Department
+  ): [WarehouseOrder!]!
+    @field(resolver: "App\\GraphQL\\Queries\\PendingOrders")
+    # @middleware(checks: ["auth:api", "department:shipping,both"]) 
+
+  "Info pengiriman berdasarkan kode (Internal)"
+  getShipmentInfo(shipmentCode: String!): Shipment
+    @field(resolver: "App\\GraphQL\\Queries\\GetShipmentInfo")
+    # @middleware(checks: ["auth:api"]) 
 }
 
-# ==============================
-# INVENTORY (from Stock Service)
-# ==============================
-type Inventory {
-  id: ID!
-  productCode: String!
-  productName: String!
-  stock: Int!
+# ============ MUTATIONS ============
+type Mutation {
+  "MUTASI WAJIB INTEGRASI: Terima permintaan restock dari Toko"
+  requestRestock(input: RestockRequestInput!): RestockResponse!
+    @field(resolver: "App\\GraphQL\\Mutations\\RequestRestock")
+    # @middleware(checks: ["api.key"])
+
+  "Approve order dari toko (Internal)"
+  approveWarehouseOrder(orderId: ID!): WarehouseOrder!
+    @field(resolver: "App\\GraphQL\\Mutations\\ApproveWarehouseOrder")
+    # @middleware(checks: ["auth:api", "department:shipping,both", "role:admin,manager"]) 
+
+  "Reject order dari toko (Internal)"
+  rejectWarehouseOrder(orderId: ID!, reason: String!): WarehouseOrder!
+    @field(resolver: "App\\GraphQL\\Mutations\\RejectWarehouseOrder")
+    # @middleware(checks: ["auth:api", "department:shipping,both", "role:admin,manager"]) 
+
+  "Buat data pengiriman (Internal)"
+  createShipment(orderId: ID!, input: CreateShipmentInput!): Shipment!
+    @field(resolver: "App\\GraphQL\\Mutations\\CreateShipment")
+    # @middleware(checks: ["auth:api", "department:shipping,both"]) 
+
+  "Update status pengiriman (Internal)"
+  updateShipmentStatus(
+    shipmentCode: String!
+    status: ShipmentStatus!
+    location: String
+  ): Shipment!
+    @field(resolver: "App\\GraphQL\\Mutations\\UpdateShipmentStatus")
+    # @middleware(checks: ["auth:api", "department:shipping,both"]) 
 }
 
-# ==============================
-# WAREHOUSE ORDERS
-# ==============================
-type WarehouseOrder {
-  id: ID!
-  tokoOrderCode: String! @rename(attribute: "toko_order_code")
-  productCode: String! @rename(attribute: "product_code")
-  quantity: Int!
-  status: String!
-  userId: ID @rename(attribute: "user_id")
-  shipment: Shipment @hasOne
-  createdAt: DateTime @rename(attribute: "created_at")
-  updatedAt: DateTime @rename(attribute: "updated_at")
-}
-
-# ==============================
-# SHIPMENTS
-# ==============================
-type Shipment {
-  id: ID!
-  shippingCode: String! @rename(attribute: "shipping_code")
-  warehouseOrderId: ID! @rename(attribute: "warehouse_order_id")
-  storeAddress: String! @rename(attribute: "store_address")
-  status: String!
-  shippedAt: String @rename(attribute: "shipped_at")
-  warehouseOrder: WarehouseOrder! @belongsTo
-  createdAt: DateTime @rename(attribute: "created_at")
-  updatedAt: DateTime @rename(attribute: "updated_at")
-}
-
-# ==============================
-# EXTERNAL API TYPES (UNTUK TOKO - INTEGRASI LINTAS KELOMPOK)
-# ==============================
+# ============ INPUT TYPES ============
 input RestockRequestInput {
   storeId: String!
+  items: [RestockItemInput!]!
+}
+
+input RestockItemInput {
   productCode: String!
   quantity: Int!
+}
+
+input CreateShipmentInput {
+  courierName: String!
+  trackingNumber: String
   storeAddress: String!
 }
 
+# ============ OUTPUT TYPES ============
 type RestockResponse {
   success: Boolean!
-  orderCode: String
+  orderId: ID
   estimatedDelivery: String
   message: String
+  processedItems: [ProcessedItem!]
+  failedItems: [FailedItem!]
+}
+
+type ProcessedItem {
+  productCode: String!
+  quantity: Int!
+  status: String!
+}
+
+type FailedItem {
+  productCode: String!
+  quantity: Int!
+  reason: String!
 }
 
 type OrderTrackingStatus {
   orderCode: String!
-  status: String!
-  estimatedDelivery: String
-  events: [TrackingEvent!]
+  status: OrderStatus!
+  estimatedDelivery: DateTime
+  shipmentStatus: ShipmentStatus
+  trackingNumber: String
+  lastUpdate: DateTime
+}
+
+type WarehouseOrder {
+  id: ID!
+  tokoOrderCode: String!
+  storeCode: String!
+  status: OrderStatus!
+  priority: PriorityLevel!
+  processedBy: UserInfo
+  items: [OrderItem!]!
+  shipment: Shipment
+  totalAmount: Float!
+  createdAt: DateTime!
+  processedAt: DateTime
+  estimatedDelivery: DateTime
+}
+
+type OrderItem {
+  productCode: String!
+  productName: String!
+  quantity: Int!
+  unitPrice: Float!
+  subtotal: Float!
+  status: ItemStatus!
+}
+
+type Shipment {
+  id: ID!
+  shippingCode: String!
+  warehouseOrderId: ID!
+  courierName: String!
+  trackingNumber: String
+  storeAddress: String!
+  status: ShipmentStatus!
+  shippedAt: DateTime
+  proofOfDelivery: String
+  trackingHistory: [TrackingEvent!]
+  createdAt: DateTime!
 }
 
 type TrackingEvent {
-  timestamp: String!
-  description: String!
-  status: String!
+  status: ShipmentStatus!
+  notes: String
+  location: String
+  occurredAt: DateTime!
 }
 
-# ==============================
-# INTERNAL API INPUTS
-# ==============================
-input WarehouseOrderInput {
+type UserInfo {
+  id: ID!
+  username: String!
+  name: String!
+}
+
+type OrderSummary {
+  orderId: ID!
   tokoOrderCode: String!
-  productCode: String!
-  quantity: Int!
-  userId: ID!
+  status: OrderStatus!
+  totalAmount: Float!
+  createdAt: DateTime!
+  itemCount: Int!
 }
 
-input ShipmentInput {
-  warehouseOrderId: ID!
-  storeAddress: String!
-  shippingCode: String!
+# ============ ENUMS (SESUAI PROPOSAL HAL. 8) ============
+enum OrderStatus {
+  MENUNGGU
+  DITERIMA
+  DIPROSES
+  DIKEMAS
+  SIAP_DIKIRIM
+  DIKIRIM
+  DITERIMA_TOKO
+  DITOLAK
 }
 
-# ==============================
-# QUERIES
-# ==============================
-type Query {
-  # ========== EXTERNAL (API Key) - UNTUK INTEGRASI TOKO ==========
-  # Track order for Toko - requires API Key + HMAC
-  trackOrder(orderCode: String!): OrderTrackingStatus @field(resolver: "App\\GraphQL\\Queries\\TrackOrder")
-  
-  # ========== INTERNAL (JWT) - UNTUK STAFF GUDANG ==========
-  # Track shipment by shipping code
-  trackShipment(shippingCode: String! @eq(key: "shipping_code")): Shipment @find
-  
-  # Get all warehouse orders
-  warehouseOrders: [WarehouseOrder!]! @all
-  
-  # Get specific warehouse order
-  warehouseOrder(id: ID! @eq): WarehouseOrder @find
+enum ShipmentStatus {
+  DIBUAT
+  DIKEMAS
+  DIAMBIL_KURIER
+  DALAM_PERJALANAN
+  SUDAH_SAMPAI
+  DITERIMA
 }
 
-# ==============================
-# MUTATIONS
-# ==============================
-type Mutation {
-  # ========== EXTERNAL (API Key) - UNTUK INTEGRASI TOKO (WAJIB) ==========
-  # Request restock from Toko - requires API Key + HMAC
-  requestRestock(input: RestockRequestInput!): RestockResponse @field(resolver: "App\\GraphQL\\Mutations\\RequestRestock")
-  
-  # ========== INTERNAL (JWT) - UNTUK STAFF GUDANG ==========
-  # Create warehouse order (internal use)
-  createWarehouseOrder(input: WarehouseOrderInput! @spread): WarehouseOrder @create
-  
-  # Approve warehouse order
-  approveWarehouseOrder(id: ID!, status: String = "DITERIMA"): WarehouseOrder @update
-  
-  # Reject warehouse order
-  rejectWarehouseOrder(id: ID!, status: String = "DITOLAK"): WarehouseOrder @update
-  
-  # Create shipment
-  createShipment(input: ShipmentInput! @spread): Shipment @create
-  
-  # Update shipment status
-  updateShipmentStatus(id: ID!, status: String!): Shipment @update
+enum PriorityLevel {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
 }
+
+enum ItemStatus {
+  PENDING
+  RESERVED
+  PICKED
+  PACKED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum Department {
+  inventory
+  shipping
+  both
+}
+

@@ -5,15 +5,14 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
+use App\Models\ExternalApiKey;
 
 class ApiKeyMiddleware
 {
     /**
      * Handle an incoming request - validates API Key + HMAC signature
-     *
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
      */
-    public function handle(Request $request, Closure $next): Response
+    public function handle($request, Closure $next)
     {
         // Extract headers
         $apiKey = $request->header('X-API-Key');
@@ -22,41 +21,59 @@ class ApiKeyMiddleware
 
         // Validate required headers
         if (!$apiKey || !$signature || !$timestamp) {
-            return response()->json([
+            return \Illuminate\Support\Facades\Response::json([
                 'error' => 'Missing authentication headers',
                 'message' => 'X-API-Key, X-Signature, and X-Timestamp headers are required',
-            ], 401);
+            ], 403);
+        }
+
+        // Timestamp must be unix seconds
+        if (!ctype_digit((string) $timestamp)) {
+            return \Illuminate\Support\Facades\Response::json([
+                'error' => 'Invalid timestamp format',
+            ], 403);
         }
 
         // Validate timestamp (prevent replay attack - max 5 minutes)
-        $requestTime = strtotime($timestamp);
+        $requestTime = (int) $timestamp;
         $currentTime = time();
         $maxAge = 300; // 5 minutes
 
-        if (!$requestTime || abs($currentTime - $requestTime) > $maxAge) {
-            return response()->json([
+        if (abs($currentTime - $requestTime) > $maxAge) {
+            return \Illuminate\Support\Facades\Response::json([
                 'error' => 'Invalid timestamp',
                 'message' => 'Request timestamp is too old or invalid',
-            ], 401);
+            ], 403);
         }
 
-        // Get request body
-        $body = $request->getContent();
+        // Lookup API key record
+        $client = ExternalApiKey::where('api_key', $apiKey)->where('is_active', true)->first();
+        if (!$client) {
+            return \Illuminate\Support\Facades\Response::json([
+                'error' => 'Unknown API key',
+            ], 403);
+        }
 
-        // Calculate expected signature: HMAC-SHA256(API_KEY + TIMESTAMP + BODY, SECRET)
-        $secret = env('API_SECRET_KEY', 'shared_secret_with_toko_12345');
-        $expectedSignature = hash_hmac('sha256', $apiKey . $timestamp . $body, $secret);
+        // Build signature base: queryString + jsonVariables + timestamp
+        $queryString = (string) $request->input('query', '');
+        $variables = $request->input('variables', []);
+        $jsonVariables = json_encode($variables, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        if ($jsonVariables === false) {
+            $jsonVariables = '{}';
+        }
 
-        // Verify signature
+        $message = $queryString . $jsonVariables . $timestamp;
+        $expectedSignature = hash_hmac('sha256', $message, $client->secret_key);
+
         if (!hash_equals($expectedSignature, $signature)) {
-            return response()->json([
+            return \Illuminate\Support\Facades\Response::json([
                 'error' => 'Invalid signature',
                 'message' => 'HMAC signature verification failed',
-            ], 401);
+            ], 403);
         }
 
-        // Inject API key info into request for logging/tracking
-        $request->merge(['api_client' => $apiKey]);
+        // Pass client metadata to the request
+        $request->attributes->set('api_client', $client);
 
         return $next($request);
     }

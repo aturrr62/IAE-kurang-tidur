@@ -13,14 +13,23 @@ return new class extends Migration
     {
         Schema::create('warehouse_orders', function (Blueprint $table) {
             $table->id();
-            $table->string('toko_order_code', 50);
-            $table->string('product_code', 50);
-            $table->integer('quantity');
-            $table->enum('status', ['MENUNGGU', 'DITERIMA', 'DITOLAK'])->default('MENUNGGU');
-            $table->unsignedBigInteger('user_id');
+            $table->string('toko_order_code');
+            $table->string('store_code');
+            $table->enum('status', ['MENUNGGU', 'DITERIMA', 'DIPROSES', 'DIKEMAS', 'SIAP_DIKIRIM', 'DIKIRIM', 'DITERIMA_TOKO', 'DITOLAK'])
+                  ->default('MENUNGGU');
+            $table->unsignedBigInteger('processed_by')->nullable();
+            $table->text('notes')->nullable();
+            $table->string('rejection_reason')->nullable();
+            $table->decimal('total_amount', 12, 2)->nullable();
+            $table->enum('priority', ['LOW', 'NORMAL', 'HIGH', 'URGENT'])->default('NORMAL');
+            $table->timestamp('processed_at')->nullable();
+            $table->timestamp('estimated_delivery')->nullable();
             $table->timestamps();
+            $table->index('toko_order_code');
+            $table->index('status');
+            $table->index('store_code');
 
-            $table->foreign('user_id')->references('id')->on('users');
+            $table->foreign('processed_by')->references('id')->on('users')->nullOnDelete();
         });
     }
 

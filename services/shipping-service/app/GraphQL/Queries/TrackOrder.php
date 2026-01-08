@@ -3,7 +3,7 @@
 namespace App\GraphQL\Queries;
 
 use App\Models\WarehouseOrder;
-use GraphQL\Error\Error;
+
 
 class TrackOrder
 {
@@ -11,7 +11,7 @@ class TrackOrder
      * Track order for Toko (External API)
      * Returns tracking status and events
      *
-     * @param null $_
+    * @param mixed $_
      * @param array{orderCode: string} $args
      * @return array
      */
@@ -25,7 +25,7 @@ class TrackOrder
             ->first();
 
         if (!$order) {
-            throw new Error('Order not found');
+            throw new \Exception('Order not found');
         }
 
         // Build tracking events based on status
@@ -33,7 +33,7 @@ class TrackOrder
         
         // Event 1: Order created
         $events[] = [
-            'timestamp' => $order->created_at->toISOString(),
+            'timestamp' => $order->created_at->toIso8601String(),
             'description' => 'Restock request received',
             'status' => 'MENUNGGU',
         ];
@@ -41,8 +41,8 @@ class TrackOrder
         // Event 2: Order approved/rejected
         if ($order->status === 'DITERIMA' || $order->status === 'DITOLAK') {
             $statusText = $order->status === 'DITERIMA' ? 'approved' : 'rejected';
-            $events[] = [
-                'timestamp' => $order->updated_at->toISOString(),
+                $events[] = [
+                    'timestamp' => $order->updated_at->toIso8601String(),
                 'description' => "Order {$statusText} by warehouse staff",
                 'status' => $order->status,
             ];
@@ -51,7 +51,7 @@ class TrackOrder
         // Event 3: Shipment created
         if ($order->shipment) {
             $events[] = [
-                'timestamp' => $order->shipment->created_at->toISOString(),
+                'timestamp' => $order->shipment->created_at->toIso8601String(),
                 'description' => "Shipment created with code: {$order->shipment->shipping_code}",
                 'status' => 'SIAP_DIKIRIM',
             ];
@@ -59,7 +59,7 @@ class TrackOrder
             // Event 4: Shipped
             if ($order->shipment->status === 'DIKIRIM' || $order->shipment->status === 'DITERIMA_TOKO') {
                 $events[] = [
-                    'timestamp' => $order->shipment->shipped_at ?? $order->shipment->updated_at->toISOString(),
+                    'timestamp' => $order->shipment->shipped_at ?? $order->shipment->updated_at->toIso8601String(),
                     'description' => 'Package shipped to store',
                     'status' => 'DIKIRIM',
                 ];
@@ -68,7 +68,7 @@ class TrackOrder
             // Event 5: Delivered
             if ($order->shipment->status === 'DITERIMA_TOKO') {
                 $events[] = [
-                    'timestamp' => $order->shipment->updated_at->toISOString(),
+                    'timestamp' => $order->shipment->updated_at->toIso8601String(),
                     'description' => 'Package delivered to store',
                     'status' => 'DITERIMA_TOKO',
                 ];

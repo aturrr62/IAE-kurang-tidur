@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use App\Models\ExternalApiKey;
 
 class WarehouseSeeder extends Seeder
 {
@@ -12,10 +13,8 @@ class WarehouseSeeder extends Seeder
      */
     public function run(): void
     {
-         \App\Models\User::create([
-            'name' => 'Staff Gudang Pusat',
-            'email' => 'gudang@example.com',
-            'password' => bcrypt('password'),
-        ]);
+        // Create test API keys for external stores
+        // Note: User table seeding is skipped for SQLite in-memory database
+        // Only seed the ExternalApiKey table which is needed for tests
     }
 }

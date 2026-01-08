@@ -2,8 +2,6 @@
 
 namespace App\Helpers;
 
-use Firebase\JWT\JWT;
-use Firebase\JWT\Key;
 use Exception;
 
 class JwtHelper
@@ -17,9 +15,14 @@ class JwtHelper
     public static function verifyToken(string $token): ?object
     {
         try {
-            $secret = env('JWT_SECRET', 'supersecretkey123');
-            $decoded = JWT::decode($token, new Key($secret, 'HS256'));
-            
+            $secret = \env('JWT_SECRET', 'supersecretkey123');
+            if (!class_exists('\\Firebase\\JWT\\JWT') || !class_exists('\\Firebase\\JWT\\Key')) {
+                return null;
+            }
+
+            /** @var object $decoded */
+            $decoded = \Firebase\JWT\JWT::decode($token, new \Firebase\JWT\Key($secret, 'HS256'));
+
             return $decoded;
         } catch (Exception $e) {
             // Token invalid, expired, or malformed
@@ -57,10 +60,11 @@ class JwtHelper
         }
 
         return [
-            'id' => $decoded->data->id,
-            'username' => $decoded->data->username,
-            'email' => $decoded->data->email,
-            'role' => $decoded->data->role,
+            'id' => $decoded->data->id ?? null,
+            'username' => $decoded->data->username ?? null,
+            'email' => $decoded->data->email ?? null,
+            'role' => $decoded->data->role ?? null,
+            'department' => $decoded->data->department ?? null,
         ];
     }
 }
