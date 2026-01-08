@@ -3,8 +3,8 @@
 namespace App\GraphQL\Mutations;
 
 use App\Models\WarehouseOrder;
+use App\Models\OrderItem;
 use Illuminate\Support\Facades\Http;
-use GraphQL\Error\Error;
 
 class RequestRestock
 {
@@ -12,7 +12,7 @@ class RequestRestock
      * Request restock from Toko (External API)
      * This endpoint is called by Toko system with API Key authentication
      *
-     * @param null $_
+    * @param mixed $_
      * @param array{input: array} $args
      * @return array
      */
@@ -21,81 +21,124 @@ class RequestRestock
         $input = $args['input'];
 
         try {
-            // 1. Validate input
-            if ($input['quantity'] <= 0) {
-                throw new Error('Quantity must be greater than 0');
+            // Basic validation
+            if (empty($input['storeId']) || empty($input['items']) || !is_array($input['items'])) {
+                throw new \Exception('Invalid input: storeId and items are required');
             }
 
-            // 2. Check stock availability at Stock Service
-            $stockServiceUrl = env('STOCK_SERVICE_URL', 'http://stock-service:8000/graphql');
-            
-            $stockQuery = <<<'GRAPHQL'
-            query CheckStock($productCode: String!) {
-              checkStock(productCode: $productCode) {
-                productCode
-                productName
-                stock
-              }
-            }
-            GRAPHQL;
+            $stockServiceUrl = \env('STOCK_SERVICE_URL', 'http://stock-service:8003/graphql');
+            $authToken = \env('STOCK_SERVICE_JWT');
 
-            $stockResponse = Http::post($stockServiceUrl, [
-                'query' => $stockQuery,
-                'variables' => [
-                    'productCode' => $input['productCode']
-                ]
-            ]);
+            $processed = [];
+            $failed = [];
 
-            if ($stockResponse->failed()) {
-                throw new Error('Failed to check stock availability');
-            }
+            // Validate each item against Stock Service
+            foreach ($input['items'] as $item) {
+                if (empty($item['productCode']) || empty($item['quantity']) || $item['quantity'] <= 0) {
+                    $failed[] = [
+                        'productCode' => $item['productCode'] ?? null,
+                        'quantity' => $item['quantity'] ?? 0,
+                        'reason' => 'Invalid productCode or quantity',
+                    ];
+                    continue;
+                }
 
-            $stockData = $stockResponse->json();
-            $inventory = $stockData['data']['checkStock'] ?? null;
+                $stockQuery = <<<'GRAPHQL'
+                query CheckStock($productCode: String!, $quantity: Int!) {
+                  checkStock(productCode: $productCode, quantity: $quantity) {
+                    available
+                    currentStock
+                    message
+                  }
+                }
+                GRAPHQL;
 
-            if (!$inventory) {
-                return [
-                    'success' => false,
-                    'orderCode' => null,
-                    'estimatedDelivery' => null,
-                    'message' => 'Product not found in warehouse inventory',
+                $headers = ['Content-Type' => 'application/json'];
+                if ($authToken) {
+                    $headers['Authorization'] = 'Bearer ' . $authToken;
+                }
+
+                $resp = \Illuminate\Support\Facades\Http::withHeaders($headers)->post($stockServiceUrl, [
+                    'query' => $stockQuery,
+                    'variables' => [
+                        'productCode' => $item['productCode'],
+                        'quantity' => (int) $item['quantity'],
+                    ],
+                ]);
+
+                if ($resp->failed()) {
+                    $failed[] = [
+                        'productCode' => $item['productCode'],
+                        'quantity' => $item['quantity'],
+                        'reason' => 'Stock service unreachable',
+                    ];
+                    continue;
+                }
+
+                $body = $resp->json();
+                $check = $body['data']['checkStock'] ?? null;
+
+                if (!$check || ($check['available'] ?? false) === false) {
+                    $failed[] = [
+                        'productCode' => $item['productCode'],
+                        'quantity' => $item['quantity'],
+                        'reason' => $check['message'] ?? 'Not available',
+                    ];
+                    continue;
+                }
+
+                $processed[] = [
+                    'productCode' => $item['productCode'],
+                    'quantity' => $item['quantity'],
+                    'status' => 'RESERVED',
                 ];
             }
 
-            if ($inventory['stock'] < $input['quantity']) {
+            if (empty($processed)) {
                 return [
                     'success' => false,
-                    'orderCode' => null,
+                    'orderId' => null,
                     'estimatedDelivery' => null,
-                    'message' => "Insufficient stock. Available: {$inventory['stock']}, Requested: {$input['quantity']}",
+                    'message' => 'No items are available to create an order',
+                    'processedItems' => [],
+                    'failedItems' => $failed,
                 ];
             }
 
-            // 3. Create warehouse order with status MENUNGGU
-            $orderCode = 'WH-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -6));
-
-            $warehouseOrder = WarehouseOrder::create([
-                'toko_order_code' => $orderCode,
-                'product_code' => $input['productCode'],
-                'quantity' => $input['quantity'],
+            // Create warehouse_order
+            $order = WarehouseOrder::create([
+                'toko_order_code' => 'WH-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -6)),
+                'store_code' => $input['storeId'],
                 'status' => 'MENUNGGU',
-                'user_id' => null, // Will be assigned when staff processes it
+                'priority' => 'NORMAL',
             ]);
 
-            // 4. Calculate estimated delivery (2-3 days from now)
-            $estimatedDelivery = date('Y-m-d', strtotime('+3 days'));
+            // Create order_items
+            foreach ($processed as $p) {
+                OrderItem::create([
+                    'warehouse_order_id' => $order->id,
+                    'product_code' => $p['productCode'],
+                    'product_name' => null,
+                    'quantity' => $p['quantity'],
+                    'unit_price' => 0,
+                    'subtotal' => 0,
+                    'status' => 'RESERVED',
+                ]);
+            }
+
+            $estimatedDelivery = \date('Y-m-d', \strtotime('+3 days'));
 
             return [
                 'success' => true,
-                'orderCode' => $orderCode,
+                'orderId' => $order->id,
                 'estimatedDelivery' => $estimatedDelivery,
                 'message' => 'Restock request created successfully. Awaiting warehouse approval.',
+                'processedItems' => $processed,
+                'failedItems' => $failed,
             ];
 
-        } catch (Error $e) {
-            throw $e;
         } catch (\Exception $e) {
-            throw new Error('Failed to process restock request: ' . $e->getMessage());
+            throw $e;
         }
     }
 }

@@ -11,17 +11,15 @@ class JwtAuthMiddleware
 {
     /**
      * Handle an incoming request.
-     *
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
      */
-    public function handle(Request $request, Closure $next): Response
+    public function handle($request, Closure $next)
     {
         // Extract token from Authorization header
         $authHeader = $request->header('Authorization');
         $token = JwtHelper::extractTokenFromHeader($authHeader);
 
         if (!$token) {
-            return response()->json([
+            return \response()->json([
                 'error' => 'No token provided',
                 'message' => 'Authorization header with Bearer token is required',
             ], 401);
@@ -31,7 +29,7 @@ class JwtAuthMiddleware
         $userData = JwtHelper::getUserFromToken($token);
 
         if (!$userData) {
-            return response()->json([
+            return \response()->json([
                 'error' => 'Invalid token',
                 'message' => 'Token is invalid, expired, or malformed',
             ], 401);
